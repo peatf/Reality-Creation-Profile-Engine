@@ -1,20 +1,74 @@
 [
   {
-    "term_name": "G Center Access - Defined",
-    "definition": "Your identity and direction are consistent; you radiate a steady sense of self.",
-    "role_in_manifestation": "With a defined G Center, your inner compass remains stable, guiding choices that reflect your true path.",
-    "weighted_importance": "high",
-    "cross_references": [],
-    "details": null,
-    "source_references": null
+    "id": "g_center_access_generator_defined",
+    "category": "G Center Access",
+    "subtype": "Generator Defined",
+    "definition": "Generators with fixed access to the inner magnet are reliably pulled toward what is life‑giving. Their consistent field anchors them in a frequency that others recognize and respond to. They are here to move when the pull is alive in their body,when the magnet signals yes, energy flows and life organizes accordingly.",
+    "role_in_manifestation": "...",
+    "weighted_importance": "contextual"
   },
   {
-    "term_name": "G Center Access - Undefined",
-    "definition": "Your sense of self and direction is fluid, shaped by surroundings and relationships.",
-    "role_in_manifestation": "An undefined G Center amplifies external influences; by discerning resonant inputs, you learn to navigate identity with flexibility.",
-    "weighted_importance": "high",
-    "cross_references": [],
-    "details": null,
-    "source_references": null
+    "id": "g_center_access_generator_undefined",
+    "category": "G Center Access",
+    "subtype": "Generator Undefined",
+    "definition": "Generators without fixed access to the inner magnet are sensitive to the magnetic field of others. Their pull is not constant, but they are highly responsive. They must discern between false pulls and the genuine spark of resonance in the body. When attuned, they become living amplifiers of aligned frequency,supercharged but highly impressionable.",
+    "role_in_manifestation": "...",
+    "weighted_importance": "contextual"
+  },
+  {
+    "id": "g_center_access_manifesting_generator_defined",
+    "category": "G Center Access",
+    "subtype": "Manifesting Generator Defined",
+    "definition": "Manifesting Generators with stable magnetic pull experience a strong internal current that moves them quickly when the signal is true. Their field operates like a turbocharged spiral,once activated, everything organizes rapidly around their motion. Their defined magnet keeps their acceleration coherent.",
+    "role_in_manifestation": "...",
+    "weighted_importance": "contextual"
+  },
+  {
+    "id": "g_center_access_manifesting_generator_undefined",
+    "category": "G Center Access",
+    "subtype": "Manifesting Generator Undefined",
+    "definition": "Manifesting Generators without fixed magnetic access are energetically versatile but can scatter quickly without inner clarity. Their system samples everything. They must wait to feel which pull stabilizes them before acting. Otherwise, their power creates chaotic spirals instead of precise manifestation.",
+    "role_in_manifestation": "...",
+    "weighted_importance": "contextual"
+  },
+  {
+    "id": "g_center_access_projector_defined",
+    "category": "G Center Access",
+    "subtype": "Projector Defined",
+    "definition": "Projectors with defined magnetic pull naturally hold a frequency that others can lock onto. They are drawn toward their correct trajectory steadily, though access still depends on recognition. Their identity is coherent, and their presence is impactful when invited into the right circuits.",
+    "role_in_manifestation": "...",
+    "weighted_importance": "contextual"
+  },
+  {
+    "id": "g_center_access_projector_undefined",
+    "category": "G Center Access",
+    "subtype": "Projector Undefined",
+    "definition": "Projectors without fixed magnetic access can feel fluid in identity,amplifying, mirroring, and absorbing others. Their guidance works best when they are deeply attuned to environments and people that light up their system. Otherwise, they may seek invitations that aren't correct, draining their subtle system.",
+    "role_in_manifestation": "...",
+    "weighted_importance": "contextual"
+  },
+  {
+    "id": "g_center_access_manifestor_defined",
+    "category": "G Center Access",
+    "subtype": "Manifestor Defined",
+    "definition": "Manifestors with stable magnetic orientation move from an inner impulse that is self‑directed and non‑negotiable. Their pull is fixed and clears space ahead of them. Their field disrupts and initiates through this internal directive,it doesn’t seek response, it enacts what’s already been claimed.",
+    "role_in_manifestation": "...",
+    "weighted_importance": "contextual"
+  },
+  {
+    "id": "g_center_access_manifestor_undefined",
+    "category": "G Center Access",
+    "subtype": "Manifestor Undefined",
+    "definition": "Manifestors without fixed magnetic access may hesitate before acting. The pull is not always clear, which creates pauses in momentum. When aligned, they move from resonance rather than rebellion. Their power emerges when they trust the inner flicker rather than adopt a fixed path.",
+    "role_in_manifestation": "...",
+    "weighted_importance": "contextual"
+  },
+  {
+    "id": "g_center_access_reflector_undefined",
+    "category": "G Center Access",
+    "subtype": "Reflector Undefined",
+    "definition": "Reflectors operate without a fixed inner magnet,they are lunar beings, sampling and reflecting the frequency field of the collective. Their orientation is cosmic, not fixed. Their path is about waiting and witnessing,letting the pull emerge through pattern and time, not immediate impulse.",
+    "role_in_manifestation": "...",
+    "weighted_importance": "contextual"
   }
 ]

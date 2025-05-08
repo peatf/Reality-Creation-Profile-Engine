@@ -2,7 +2,8 @@
 # from Astrological Manifestation Analyst Construction.md.
 # This functionality has been removed as the primary source for
 # astrology definitions is now src/astrology/definitions.py,
-# which loads data directly from enginedef.json.
+# which dynamically loads data from individual JSON files
+# in src/knowledge_graph/AstroDefinitions/ using src/knowledge_graph/loaders.py.
 # Any remaining functions in this file serve other purposes within the astrology module.
 
 import logging

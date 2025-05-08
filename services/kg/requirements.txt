@@ -1,0 +1,12 @@
+neo4j
+pydantic
+pydantic-settings
+python-dotenv
+python-json-logger
+confluent-kafka[avro] # For Kafka client used by consumers (if needed by shared code)
+aiokafka # For async Kafka consumer implementation
+
+# Testing Dependencies
+pytest
+pytest-asyncio
+pytest-mock

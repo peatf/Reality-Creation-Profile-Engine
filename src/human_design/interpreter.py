@@ -1,9 +1,10 @@
 import json
-import os
+# import os # No longer needed for enginedef.json path
 import logging
-import re
+# import re # No longer needed for parsing term_name
 from typing import Dict, Any, Optional, List
-from ..constants import KnowledgeBaseKeys # Added import
+from ..constants import KnowledgeBaseKeys
+from src.knowledge_graph.loaders import get_hd_definition as load_hd_json_file # Renamed for clarity
 
 logger = logging.getLogger(__name__)
 
@@ -11,8 +12,8 @@ logger = logging.getLogger(__name__)
 # Define the expected structure, used for initialization and fallback
 DEFAULT_HD_KB_STRUCTURE = {
     KnowledgeBaseKeys.TYPES.value: {},
-    KnowledgeBaseKeys.AUTHORITIES.value: {},
-    KnowledgeBaseKeys.STRATEGIES.value: {},
+    KnowledgeBaseKeys.AUTHORITIES.value: {}, # Will be empty if no authorities.json or similar
+    KnowledgeBaseKeys.STRATEGIES.value: {}, # Will be empty if no strategies.json or similar
     KnowledgeBaseKeys.PROFILES.value: {},
     KnowledgeBaseKeys.CENTERS.value: {},
     KnowledgeBaseKeys.GATES.value: {},
@@ -24,13 +25,25 @@ DEFAULT_HD_KB_STRUCTURE = {
         KnowledgeBaseKeys.PERSPECTIVE.value: {},
         KnowledgeBaseKeys.ENVIRONMENT.value: {}
     },
-    KnowledgeBaseKeys.MANIFESTATION_MECHANICS.value: {},
+    KnowledgeBaseKeys.MANIFESTATION_MECHANICS.value: {}, # Likely remains empty unless populated from a new file
     KnowledgeBaseKeys.G_CENTER_ACCESS_DETAILS.value: {}
+    # Add a key for "crosses" if it's to be formally part of the KB
+    # "crosses": {}
 }
 
 # --- Knowledge Base Loading and Transformation ---
 
+# Constants like AUTHORITY_MAPPING, HD_TYPES, HD_STRATEGIES,
+# MOTIVATION_TERM_NAMES, PERSPECTIVE_TERM_NAMES, VARIABLE_TYPES
+# were used for parsing the flat list from enginedef.json.
+# If the new JSON files are directly structured (e.g., HD_gates.json is already {"1": def, "2": def}),
+# these constants may no longer be needed for the transformation itself.
+# They might still be useful for validation or other logic elsewhere.
+# For now, they are commented out to reflect their reduced role in loading.
+
 # Mapping for authorities from JSON term_name to internal keys
+# This might still be needed if the loaded Authority definitions don't use the desired keys directly
+# or if external data uses these term names. Uncommenting for test compatibility.
 AUTHORITY_MAPPING = {
     "Emotional Authority": "Emotional",
     "Sacral Authority": "Sacral",
@@ -40,212 +53,140 @@ AUTHORITY_MAPPING = {
     "Environmental Authority": "None (Environmental/Mental)",
     "Lunar Authority": "None (Lunar)"
 }
+#
+# # Known HD Types for direct matching
+# HD_TYPES_SET = {"Manifestor", "Generator", "Manifesting Generator", "Projector", "Reflector"} # Renamed to avoid conflict
+# HD_STRATEGIES_SET = {"Informing", "Responding", "Waiting for the Invitation", "Waiting a Lunar Cycle"} # Renamed
+#
+# MOTIVATION_TERM_NAMES = { ... } # Likely not needed if motivation.json is well-structured
+# PERSPECTIVE_TERM_NAMES = { ... } # Likely not needed if perspective.json is well-structured
+#
+# # Known Variable Types for old regex matching
+# OLD_VARIABLE_REGEX_KEYS = {
+#     KnowledgeBaseKeys.DETERMINATION.value,
+#     KnowledgeBaseKeys.COGNITION.value,
+#     KnowledgeBaseKeys.ENVIRONMENT.value
+# }
 
-# Known HD Types for direct matching
-HD_TYPES = {"Manifestor", "Generator", "Manifesting Generator", "Projector", "Reflector"}
-HD_STRATEGIES = {"Informing", "Responding", "Waiting for the Invitation", "Waiting a Lunar Cycle"}
 
-MOTIVATION_TERM_NAMES = {
-    "Fear – Communalist (Left / Strategic)", "Fear – Separatist (Right / Receptive)",
-    "Hope – Theist (Left / Strategic)", "Hope – Antitheist (Right / Receptive)",
-    "Desire – Leader (Left / Strategic)", "Desire – Follower (Right / Receptive)",
-    "Need – Master (Left / Strategic)", "Need – Novice (Right / Receptive)",
-    "Guilt – Conditioner (Left / Strategic)", "Guilt – Conditioned (Right / Receptive)",
-    "Innocence – Observer (Left / Strategic)", "Innocence – Observed (Right / Receptive)"
-}
-
-PERSPECTIVE_TERM_NAMES = {
-    "Survival (Left – Focused)", "Survival (Right – Peripheral)",
-    "Possibility (Left – Focused)", "Possibility (Right – Peripheral)",
-    "Perspective (Left – Focused)", "Perspective (Right – Peripheral)",
-    "Understanding (Left – Focused)", "Understanding (Right – Peripheral)",
-    "Evaluation (Left – Focused)", "Evaluation (Right – Peripheral)",
-    "Judgment (Left – Focused)", "Judgment (Right – Peripheral)"
-}
-
-# Known Variable Types for nesting (original categories like "Determination - X")
-VARIABLE_TYPES = {
-    KnowledgeBaseKeys.DETERMINATION.value,
-    KnowledgeBaseKeys.COGNITION.value,
-    KnowledgeBaseKeys.ENVIRONMENT.value
-    # Motivation and Perspective are now handled by specific term matching
-    # but we keep them here if some old format "Motivation - X" might still exist.
-    # If not, they can be removed from this set.
-    # For now, let's assume the new terms are primary and the regex is secondary.
-    # KnowledgeBaseKeys.MOTIVATION.value, # Handled by MOTIVATION_TERM_NAMES
-    # KnowledgeBaseKeys.PERSPECTIVE.value # Handled by PERSPECTIVE_TERM_NAMES
-}
-
-def transform_knowledge_base(definitions: Dict[str, Any]) -> Dict[str, Any]:
-    """Transform raw JSON definitions into structured knowledge base."""
-    # Start with a deep copy of the default structure to avoid modifying it
+def transform_knowledge_base() -> Dict[str, Any]:
+    """
+    Loads Human Design definitions from individual JSON files in HDDefinitions
+    and structures them into the knowledge base.
+    """
+    # Start with a deep copy of the default structure
     hd_data = {k: (v.copy() if isinstance(v, dict) else v) for k, v in DEFAULT_HD_KB_STRUCTURE.items()}
-    hd_data[KnowledgeBaseKeys.VARIABLES.value] = {
-        k: v.copy() for k, v in DEFAULT_HD_KB_STRUCTURE[KnowledgeBaseKeys.VARIABLES.value].items()
-    }
-
-    # Process the new top-level "centers" array first
-    raw_centers = definitions.get("centers", [])
-    if raw_centers: # Ensure it's not None and is iterable
-        logger.info(f"Processing {len(raw_centers)} raw Center definitions from top-level 'centers' array...")
-        for center_data in raw_centers:
-            name = center_data.get("center_name")
-            defined_data = center_data.get("defined")
-            undefined_data = center_data.get("undefined")
-
-            if name and defined_data is not None and undefined_data is not None:
-                hd_data[KnowledgeBaseKeys.CENTERS.value].setdefault(name, {})
-                hd_data[KnowledgeBaseKeys.CENTERS.value][name]["Defined"] = defined_data
-                hd_data[KnowledgeBaseKeys.CENTERS.value][name]["Undefined"] = undefined_data
-            else:
-                logger.warning(f"Skipping center due to missing 'center_name', 'defined', or 'undefined' data: {center_data}")
-
-    hd_definitions = definitions.get("humanDesign", []) # These are other definitions like gates, channels etc.
-    logger.info(f"Processing {len(hd_definitions)} raw Human Design definitions from 'humanDesign' array...")
-
-    for item in hd_definitions:
-        term = item.get("term_name")
-        if not term:
-            logger.warning("Found definition item without 'term_name'. Skipping.")
-            continue
-
-        # Keep all other fields like 'definition', 'role_in_manifestation', etc.
-        definition_data = {k: v for k, v in item.items() if k != "term_name"}
-        matched = False
-
-        # Gates (e.g., "Gate 1")
-        gate_match = re.match(r"^Gate (\d+)$", term)
-        if gate_match:
-            gate_num = gate_match.group(1)
-            hd_data[KnowledgeBaseKeys.GATES.value][gate_num] = definition_data
-            matched = True
-            continue
-
-        # Channels (e.g., "Channel 1–8", "Channel 34-20")
-        channel_match = re.match(r"^Channel (\d+)[–-](\d+)", term)
-        if channel_match:
-            ch_key = f"{channel_match.group(1)}-{channel_match.group(2)}" # Standardize
-            hd_data[KnowledgeBaseKeys.CHANNELS.value][ch_key] = definition_data
-            matched = True
-            continue
-
-        # Profiles (e.g., "Profile 1/3")
-        profile_match = re.match(r"^Profile (\d/\d)$", term)
-        if profile_match:
-            prof_key = profile_match.group(1)
-            hd_data[KnowledgeBaseKeys.PROFILES.value][prof_key] = definition_data
-            matched = True
-            continue
-
-        # Types (Exact match)
-        if term in HD_TYPES:
-            hd_data[KnowledgeBaseKeys.TYPES.value][term] = definition_data
-            matched = True
-            continue
-
-        # Strategies (Exact match)
-        if term in HD_STRATEGIES:
-            hd_data[KnowledgeBaseKeys.STRATEGIES.value][term] = definition_data
-            matched = True
-            continue
-
-        # Authorities (Map from JSON name)
-        if term in AUTHORITY_MAPPING:
-            auth_key = AUTHORITY_MAPPING[term]
-            hd_data[KnowledgeBaseKeys.AUTHORITIES.value][auth_key] = definition_data
-            matched = True
-            continue
-
-        # New Motivation Terms (Exact match)
-        if term in MOTIVATION_TERM_NAMES:
-            hd_data[KnowledgeBaseKeys.VARIABLES.value].setdefault(KnowledgeBaseKeys.MOTIVATION.value, {})[term] = definition_data
-            matched = True
-            continue
-
-        # New Perspective Terms (Exact match)
-        if term in PERSPECTIVE_TERM_NAMES:
-            hd_data[KnowledgeBaseKeys.VARIABLES.value].setdefault(KnowledgeBaseKeys.PERSPECTIVE.value, {})[term] = definition_data
-            matched = True
-            continue
-
-        # Centers are now processed from the top-level "centers" array.
-        # The old logic below looking for "X Center" with "state" in "humanDesign" items is now redundant.
-        # if " Center" in term and item.get("state"):
-        #     ... (old parsing logic removed) ...
-        # elif " Center" in term: # Fallback for general center terms without state
-        #     ... (old parsing logic removed) ...
-
-        # Variables (e.g., "Cognition - Inner Vision")
-        # Variables (e.g., "Cognition - Inner Vision") - This handles older/other variable formats
-        variable_match = re.match(r"^(Determination|Cognition|Environment) - (.+)$", term) # Removed Motivation/Perspective from regex
-        if variable_match:
-            var_type_candidate = variable_match.group(1).lower()
-            subtype = variable_match.group(2)
-            # Ensure var_type_candidate is a valid key from KnowledgeBaseKeys enum if it's in VARIABLE_TYPES
-            if var_type_candidate in VARIABLE_TYPES: # VARIABLE_TYPES now only contains determination, cognition, environment
-                hd_data[KnowledgeBaseKeys.VARIABLES.value].setdefault(var_type_candidate, {})[subtype] = definition_data
-                matched = True
-                continue
-            else:
-                # This case should ideally not be hit if VARIABLE_TYPES is correctly defined
-                logger.warning(f"Matched variable prefix '{var_type_candidate}' for term '{term}' but it's not in the configured VARIABLE_TYPES. Skipping.")
+    if KnowledgeBaseKeys.VARIABLES.value in hd_data and isinstance(hd_data[KnowledgeBaseKeys.VARIABLES.value], dict):
+        hd_data[KnowledgeBaseKeys.VARIABLES.value] = {
+            k: (v.copy() if isinstance(v, dict) else v)
+            for k, v in hd_data[KnowledgeBaseKeys.VARIABLES.value].items()
+        }
+    else: # Should not happen if DEFAULT_HD_KB_STRUCTURE is correct
+        hd_data[KnowledgeBaseKeys.VARIABLES.value] = {}
 
 
-        # G Center Access Details by Type and Definition state
-        elif item.get("category") == "G Center Access":
-            item_id = item.get("id")
-            if item_id:
-                # Data to store for G Center Access, excluding id and category as they are structural
-                g_center_access_item_data = {
-                    k: v for k, v in item.items()
-                    if k not in ["id", "category", "term_name"] # term_name is unlikely but good to exclude
-                }
-                hd_data[KnowledgeBaseKeys.G_CENTER_ACCESS_DETAILS.value][item_id] = g_center_access_item_data
-                matched = True
-                continue
+    logger.info("Loading Human Design definitions from individual JSON files...")
 
-        if not matched:
-            # If term is None (because item had no 'term_name' but also no 'category' for G Center Access)
-            # or if term was present but didn't match any category.
-            actual_identifier = term if term else item.get("id", "Unknown item")
-            logger.debug(f"Item '{actual_identifier}' from enginedef.json did not match specific HD category patterns. It might be a general term or require new handling.")
+    # Load main categories - assuming JSON files return dicts ready for assignment
+    hd_data[KnowledgeBaseKeys.CENTERS.value] = load_hd_json_file("centers") or {}
+    hd_data[KnowledgeBaseKeys.GATES.value] = load_hd_json_file("HD_gates") or {}
+    hd_data[KnowledgeBaseKeys.CHANNELS.value] = load_hd_json_file("HD_channels") or {}
+    hd_data[KnowledgeBaseKeys.PROFILES.value] = load_hd_json_file("profiles") or {}
+    hd_data[KnowledgeBaseKeys.G_CENTER_ACCESS_DETAILS.value] = load_hd_json_file("g_center_access") or {}
+    
+    # Types, Strategies, Authorities
+    # Assuming HD_Types.json contains only type definitions.
+    # Strategies and Authorities will remain empty unless dedicated files are loaded
+    # or HD_Types.json (or another file) is structured to include them and logic is added here to parse.
+    hd_data[KnowledgeBaseKeys.TYPES.value] = load_hd_json_file("HD_Types") or {}
+    
+    # Example if strategies and authorities had their own files:
+    # hd_data[KnowledgeBaseKeys.STRATEGIES.value] = load_hd_json_file("strategies") or {}
+    # hd_data[KnowledgeBaseKeys.AUTHORITIES.value] = load_hd_json_file("authorities") or {}
+    # Since these files are not listed in the prompt, these keys will likely remain empty.
 
-    logger.info(f"Knowledge base transformation complete. Found {len(hd_data[KnowledgeBaseKeys.GATES.value])} gates, {len(hd_data[KnowledgeBaseKeys.CHANNELS.value])} channels, etc.")
+    # Load Variables
+    variables_target = hd_data.setdefault(KnowledgeBaseKeys.VARIABLES.value, {}) # Ensure 'variables' key exists
+    variables_target[KnowledgeBaseKeys.DETERMINATION.value] = load_hd_json_file("determination") or {}
+    variables_target[KnowledgeBaseKeys.COGNITION.value] = load_hd_json_file("cognition") or {}
+    variables_target[KnowledgeBaseKeys.MOTIVATION.value] = load_hd_json_file("motivation") or {}
+    variables_target[KnowledgeBaseKeys.PERSPECTIVE.value] = load_hd_json_file("perspective") or {}
+    variables_target[KnowledgeBaseKeys.ENVIRONMENT.value] = load_hd_json_file("environment") or {}
+
+    # Load Crosses (if this is a new addition to the KB)
+    loaded_crosses = load_hd_json_file("crosses")
+    if loaded_crosses:
+        # Decide where to store crosses, e.g., hd_data["crosses"] = loaded_crosses
+        # For now, just log it if not part of DEFAULT_HD_KB_STRUCTURE
+        if "crosses" not in hd_data: # Assuming "crosses" is not yet a standard KB key
+             logger.info(f"Loaded 'crosses.json' with {len(loaded_crosses)} entries. This category is not in DEFAULT_HD_KB_STRUCTURE.")
+             # If you want to add it dynamically:
+             # hd_data["crosses"] = loaded_crosses
+        else: # If "crosses" was added to DEFAULT_HD_KB_STRUCTURE
+             hd_data["crosses"] = loaded_crosses
+
+    logger.info(f"Knowledge base transformation complete. Loaded data for gates: {len(hd_data[KnowledgeBaseKeys.GATES.value])}, channels: {len(hd_data[KnowledgeBaseKeys.CHANNELS.value])}, etc.")
     return hd_data
 
 # Load and transform the knowledge base on module import
-HD_KNOWLEDGE_BASE: Dict[str, Any] = DEFAULT_HD_KB_STRUCTURE.copy() # Initialize with default
+HD_KNOWLEDGE_BASE: Dict[str, Any] = {} # Initialize empty
 
 try:
-    kb_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'knowledge_graph', 'enginedef.json'))
-    logger.info(f"Attempting to load Knowledge Base from: {kb_path}")
-    with open(kb_path, 'r', encoding='utf-8') as f:
-        raw_definitions = json.load(f)
-    HD_KNOWLEDGE_BASE = transform_knowledge_base(raw_definitions) # Use the transformation function
-    logger.info(f"Successfully loaded and transformed knowledge base from {kb_path}")
+    logger.info("Attempting to load and transform Knowledge Base from individual HDDefinition files...")
+    HD_KNOWLEDGE_BASE = transform_knowledge_base()
+    logger.info(f"Successfully loaded and transformed Human Design knowledge base.")
+    # Perform a quick validation
+    if not HD_KNOWLEDGE_BASE.get(KnowledgeBaseKeys.GATES.value) or not HD_KNOWLEDGE_BASE.get(KnowledgeBaseKeys.CENTERS.value):
+        logger.warning("HD Knowledge Base might be missing critical data (e.g., gates or centers are empty). Check loader paths and JSON files.")
 
-except FileNotFoundError:
-    logger.error(f"Knowledge base file not found at {kb_path}. Using default empty structure.")
-    # HD_KNOWLEDGE_BASE remains as DEFAULT_HD_KB_STRUCTURE
-except json.JSONDecodeError as e:
-    logger.error(f"Error decoding JSON from {kb_path}: {e}. Using default empty structure.")
-    # HD_KNOWLEDGE_BASE remains as DEFAULT_HD_KB_STRUCTURE
 except Exception as e:
-    logger.error(f"Error loading/transforming knowledge base: {e}", exc_info=True)
-    # HD_KNOWLEDGE_BASE remains as DEFAULT_HD_KB_STRUCTURE (already initialized)
+    logger.error(f"Fatal error loading/transforming Human Design knowledge base: {e}", exc_info=True)
+    logger.info("Falling back to DEFAULT_HD_KB_STRUCTURE due to loading error.")
+    # Deep copy DEFAULT_HD_KB_STRUCTURE on fallback
+    HD_KNOWLEDGE_BASE = {k: (v.copy() if isinstance(v, dict) else v) for k, v in DEFAULT_HD_KB_STRUCTURE.items()}
+    if KnowledgeBaseKeys.VARIABLES.value in HD_KNOWLEDGE_BASE and isinstance(HD_KNOWLEDGE_BASE[KnowledgeBaseKeys.VARIABLES.value], dict):
+        HD_KNOWLEDGE_BASE[KnowledgeBaseKeys.VARIABLES.value] = {
+            k: (v.copy() if isinstance(v, dict) else v)
+            for k, v in HD_KNOWLEDGE_BASE[KnowledgeBaseKeys.VARIABLES.value].items()
+        }
+
 
 # --- Helper Functions ---
 
 def validate_knowledge_base(kb: Dict[str, Any]) -> bool:
     """Validate knowledge base has required top-level structure."""
     # Check if all main keys defined in the Enum exist in the loaded KB
-    required_keys = {k.value for k in KnowledgeBaseKeys if k not in VARIABLE_TYPES and k != KnowledgeBaseKeys.VARIABLES} # Check top level keys
+    # OLD_VARIABLE_REGEX_KEYS is no longer relevant for this validation if it's removed
+    required_keys = {k.value for k in KnowledgeBaseKeys if k.value != KnowledgeBaseKeys.VARIABLES.value} # Check top level keys excluding 'variables' itself initially
     required_keys.add(KnowledgeBaseKeys.VARIABLES.value) # Add the main variables key
+
+    # Remove keys that might be conditionally empty if their files don't exist (e.g. authorities, strategies)
+    # This makes validation more lenient for those parts if data isn't migrated yet.
+    # For now, we expect all keys from DEFAULT_HD_KB_STRUCTURE to be present.
+
     is_valid = all(key in kb for key in required_keys)
     if not is_valid:
         missing = required_keys - kb.keys()
         logger.warning(f"Knowledge base validation failed. Missing top-level keys: {missing}")
-    # Optionally, add deeper validation (e.g., check variable sub-keys)
+    
+    # Validate nested variable structure
+    if KnowledgeBaseKeys.VARIABLES.value in kb and isinstance(kb[KnowledgeBaseKeys.VARIABLES.value], dict):
+        vars_kb = kb[KnowledgeBaseKeys.VARIABLES.value]
+        required_vars_keys = {
+            KnowledgeBaseKeys.DETERMINATION.value, KnowledgeBaseKeys.COGNITION.value,
+            KnowledgeBaseKeys.MOTIVATION.value, KnowledgeBaseKeys.PERSPECTIVE.value,
+            KnowledgeBaseKeys.ENVIRONMENT.value
+        }
+        vars_valid = all(v_key in vars_kb for v_key in required_vars_keys)
+        if not vars_valid:
+            missing_vars = required_vars_keys - vars_kb.keys()
+            logger.warning(f"Knowledge base validation failed for 'variables' sub-keys. Missing: {missing_vars}")
+            is_valid = False # Overall validation fails if variables structure is incomplete
+    elif KnowledgeBaseKeys.VARIABLES.value not in kb:
+        logger.warning(f"Knowledge base validation failed: '{KnowledgeBaseKeys.VARIABLES.value}' key is missing.")
+        is_valid = False
+
+
     return is_valid
 
 def get_hd_definition(category: KnowledgeBaseKeys, key: str) -> Optional[Dict[str, Any]]:
@@ -314,6 +255,27 @@ def interpret_human_design_chart(chart_data: Optional[Dict[str, Any]]) -> Option
     interpreted_results['active_channels'] = active_channels_short # Use short format for consistency
     interpreted_results['active_gates'] = active_gates
     interpreted_results['activations'] = activations # Keep raw activations if needed
+
+    # Determine G Center Access
+    g_center_access_info = None
+    g_center_access_type_string = None
+    if hd_type and defined_centers is not None: # defined_centers can be an empty list
+        g_center_is_defined = "G" in defined_centers
+        type_for_id = hd_type.lower().replace(" ", "_")
+        status_for_id = "defined" if g_center_is_defined else "undefined"
+
+        # Reflectors always have an undefined G center according to the provided JSON
+        if type_for_id == "reflector":
+            status_for_id = "undefined"
+
+        g_center_access_id = f"g_center_access_{type_for_id}_{status_for_id}"
+        
+        g_center_access_data = HD_KNOWLEDGE_BASE.get(KnowledgeBaseKeys.G_CENTER_ACCESS_DETAILS.value, {}).get(g_center_access_id)
+        if g_center_access_data:
+            g_center_access_info = g_center_access_data
+            g_center_access_type_string = g_center_access_data.get("subtype", f"{hd_type} {status_for_id.capitalize()}")
+            interpreted_results['g_center_access_type'] = g_center_access_type_string
+            interpreted_results['g_center_access_definition'] = g_center_access_data.get("definition")
 
     # Parse Variables string (e.g., "PRR DRL") if present
     # P = Perspective, R = Motivation (Awareness), D = Determination, L = Environment
@@ -389,6 +351,9 @@ def interpret_human_design_chart(chart_data: Optional[Dict[str, Any]]) -> Option
 
     # Add manifestation insights
     insights["manifestation_notes"] = _get_manifestation_insights(hd_type, hd_strategy, hd_authority, variables_parsed)
+
+    if g_center_access_info:
+        insights["g_center_access_info"] = g_center_access_info
 
     interpreted_results['insights'] = insights
 

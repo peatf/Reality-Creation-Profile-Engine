@@ -13,7 +13,7 @@ pytest-mock # For mocking in tests
 pytest-asyncio # For testing async code
 googlemaps # For Google Geocoding API
 timezonefinder # For finding timezone from lat/lon
-SQLAlchemy~=1.4.52
+SQLAlchemy>=2.0 # Updated for async_sessionmaker and modern features
 redis # For Redis cache
 confluent-kafka[avro] # For Kafka integration with Avro
 psycopg2-binary # PostgreSQL adapter

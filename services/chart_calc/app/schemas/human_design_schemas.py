@@ -29,6 +29,8 @@ class HumanDesignChartResponse(BaseModel):
     motivation_orientation: Optional[str] = Field(None, json_schema_extra={'example': "Left"}, description="Motivation Orientation (Left/Right)")
     perspective: Optional[str] = Field(None, json_schema_extra={'example': "Survival (Left – Focused)"}, description="Perspective Variable (full term name)")
     perspective_orientation: Optional[str] = Field(None, json_schema_extra={'example': "Left"}, description="Perspective Orientation (Left/Right)")
+    g_center_access_type: Optional[str] = Field(None, json_schema_extra={'example': "Generator Defined"}, description="G Center Access Type (e.g., Generator Defined, Projector Undefined)")
+    g_center_access_definition: Optional[str] = Field(None, json_schema_extra={'example': "Generators with fixed access..."}, description="Definition of the G Center Access type")
     
     conscious_sun_gate: GateActivation = Field(..., description="Conscious Sun Gate activation")
     unconscious_sun_gate: GateActivation = Field(..., description="Unconscious Sun Gate activation")

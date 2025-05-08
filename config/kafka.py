@@ -1,5 +1,8 @@
 KAFKA_BOOTSTRAP_SERVERS = ["kafka01:9092", "kafka02:9092"]
+SCHEMA_REGISTRY_URL = "http://schema-registry:8081" # Added Schema Registry URL
 TOPIC_TYPOLOGY_ASSESSED = "TYPOLOGY_ASSESSED"
+# Add other topics if needed, e.g.:
+# TOPIC_CHART_CALCULATED = "CHART_CALCULATED"
 
 def load_avro_schema(path: str):
     # This is a placeholder. In a real scenario, you'd load and parse the Avro schema.

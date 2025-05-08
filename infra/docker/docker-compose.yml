@@ -67,7 +67,8 @@ services:
         condition: service_started
     environment:
       SCHEMA_REGISTRY_HOST_NAME: schema-registry
-      SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: PLAINTEXT_INTERNAL://kafka:9093 # Use internal listener
+      SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: kafka:9093 # Use internal listener, without scheme
+      SCHEMA_REGISTRY_KAFKASTORE_SECURITY_PROTOCOL: PLAINTEXT # Explicitly set protocol
       SCHEMA_REGISTRY_LISTENERS: http://0.0.0.0:8081
     # Removed healthcheck due to persistent failures
     # healthcheck:
@@ -110,9 +111,75 @@ services:
     # No restart needed for test runs usually
     # restart: unless-stopped
 
+  neo4j:
+    image: neo4j:5 # Use a specific version, e.g., 5
+    container_name: neo4j_graph
+    environment:
+      # Set a password for the neo4j user. Use secrets in production!
+      NEO4J_AUTH: neo4j/change_this_password
+      # Optional: Configure memory limits if needed
+      # NEO4J_server_memory_pagecache_size: 1G
+      # NEO4J_server_memory_heap_initial__size: 1G
+      # NEO4J_server_memory_heap_max__size: 1G
+    ports:
+      - "7474:7474" # Neo4j Browser UI (HTTP)
+      - "7687:7687" # Bolt protocol
+    volumes:
+      - neo4j_data:/data
+    healthcheck:
+      # Check if the Bolt port is open and responding
+      # Use curl against the HTTP endpoint, which is often available earlier and curl is common
+      # Use cypher-shell to check Bolt connectivity and basic query execution
+      test: ["CMD-SHELL", "cypher-shell -u neo4j -p change_this_password -a bolt://localhost:7687 'RETURN 1' || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s # Give Neo4j time to start
+    restart: unless-stopped
+
+  kg_service:
+    build:
+      context: ../.. # Project root relative to this docker-compose file
+      dockerfile: services/kg/Dockerfile # Path to the KG service Dockerfile
+    container_name: kg_service
+    depends_on:
+      kafka:
+        condition: service_started # Wait for Kafka to be available
+      neo4j:
+        condition: service_healthy # Wait for Neo4j to be healthy
+    environment:
+      # Kafka connection details (use internal listener)
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9093
+      SCHEMA_REGISTRY_URL: http://schema-registry:8081
+      # Neo4j connection details (match the neo4j service)
+      NEO4J_URI: bolt://neo4j:7687
+      NEO4J_USER: neo4j
+      NEO4J_PASSWORD: change_this_password # MUST MATCH NEO4J_AUTH password
+      NEO4J_DATABASE: neo4j # Default database
+      # Logging level for the service
+      LOG_LEVEL: INFO
+      # Ensure Python path includes base app dir for shared modules
+      PYTHONPATH: /app
+    # Optional: Mount code for development (if not relying solely on build)
+    # volumes:
+    #   - ../..:/app
+    healthcheck:
+      # Basic healthcheck: Check if the main Python process is running
+      # A more robust check would involve a script verifying Kafka/Neo4j connectivity
+      # or a dedicated health endpoint if the service had one.
+      test: ["CMD-SHELL", "pgrep -f '/app/services/kg/main.py' || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s # Give consumers time to start
+    restart: unless-stopped
+
+# Top-level volumes definition (no indentation)
 volumes:
   db_data: # Renamed volume definition
     driver: local
   redis_data:
+    driver: local
+  neo4j_data:
     driver: local
   # app_code: # Removed named volume, direct mount is better for dev/test

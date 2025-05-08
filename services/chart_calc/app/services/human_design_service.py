@@ -163,6 +163,8 @@ async def calculate_human_design_chart(request: CalculationRequest) -> HumanDesi
         motivation_orientation="Left", # Placeholder - Parsed from the motivation term
         perspective="Possibility (Left – Focused)", # Placeholder
         perspective_orientation="Left", # Placeholder - Parsed from the perspective term
+        g_center_access_type="Generator Defined (Placeholder)", # Placeholder
+        g_center_access_definition="Placeholder G Center Access definition.", # Placeholder
         
         conscious_sun_gate=conscious_sun_gate_details,
         unconscious_sun_gate=unconscious_sun_gate_details,

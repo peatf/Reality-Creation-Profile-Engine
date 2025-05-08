@@ -1,1 +1,0 @@
-# This file makes the 'knowledge_graph' directory a Python package.
