@@ -1,0 +1,1628 @@
+version: "1.0.0"
+released_at: "2025-05-05"
+meta:
+  minimum_items_per_category: 3
+  cronbach_alpha_threshold: 0.8
+spectrums:
+  - id: cognitive_alignment
+    name: Cognitive Alignment
+    description: How you mentally interact with reality
+    left_label: Rational
+    right_label: Intuitive
+    questions:
+      - id: cognitive_q1
+        text: "When a new idea lands, your first instinct is to:"
+        answers:
+          left:
+            label: "Break it down logically: you want evidence before you let it in"
+            value: -1
+          balanced:
+            label: "Weigh it out: feel the logic, but also listen to your intuition"
+            value: 0
+          right:
+            label: "Trust your instincts or your gut if it clicks in your body, that's enough"
+            value: 1
+      - id: cognitive_q2
+        text: "What feels most trustworthy to you when making important choices?"
+        answers:
+          left:
+            label: "Thorough analysis and careful reasoning."
+            value: -1
+          balanced:
+            label: "A blend of logic and intuitive guidance."
+            value: 0
+          right:
+            label: "Inner knowing and spontaneous insight."
+            value: 1
+      - id: cognitive_q3
+        text: "When facing an unexpected challenge, you primarily rely on:"
+        answers:
+          left:
+            label: "Systematic analysis and established procedures."
+            value: -1
+          balanced:
+            label: "A blend of strategic thinking and gut feeling."
+            value: 0
+          right:
+            label: "Intuitive knowing and creative adaptation in the moment."
+            value: 1
+  - id: perceptual_focus
+    name: Perceptual Focus
+    description: Clarity and openness in manifestation
+    left_label: Definitive
+    right_label: Receptive
+    questions:
+      - id: perceptual_q1
+        text: "When envisioning your goals, you prefer:"
+        answers:
+          left:
+            label: "Precise, detailed visions of exactly what you want."
+            value: -1
+          balanced:
+            label: "A general vision with some specifics, leaving space for surprises."
+            value: 0
+          right:
+            label: "Staying open and allowing your vision to evolve naturally over time."
+            value: 1
+      - id: perceptual_q2
+        text: "You feel most comfortable manifesting when:"
+        answers:
+          left:
+            label: "You know exactly what you're aiming for."
+            value: -1
+          balanced:
+            label: "You have clear intentions but remain flexible in details."
+            value: 0
+          right:
+            label: "You trust life to surprise you in positive ways."
+            value: 1
+      - id: perceptual_q3
+        text: "If reality deviates significantly from your initial vision, you tend to:"
+        answers:
+          left:
+            label: "Attempt to adjust reality back towards your precise vision."
+            value: -1
+          balanced:
+            label: "Assess whether the deviation offers value and adapt accordingly."
+            value: 0
+          right:
+            label: "Welcome the deviation as a sign of organic unfolding."
+            value: 1
+  - id: kinetic_drive
+    name: Kinetic Drive
+    description: How you approach action and momentum
+    left_label: Deliberate
+    right_label: Spontaneous
+    questions:
+      - id: kinetic_q1
+        text: "Your typical action-taking style looks like:"
+        answers:
+          left:
+            label: "Thoughtful and intentional, with detailed plans."
+            value: -1
+          balanced:
+            label: "Adaptive: adjusting your pacing based on current circumstances."
+            value: 0
+          right:
+            label: "Quick and spontaneous: trusting instinct to guide you."
+            value: 1
+      - id: kinetic_q2
+        text: "Momentum feels most natural to you when:"
+        answers:
+          left:
+            label: "Following a structured action plan."
+            value: -1
+          balanced:
+            label: "Flowing between structured and spontaneous bursts of activity."
+            value: 0
+          right:
+            label: "Acting in spontaneous bursts without detailed planning."
+            value: 1
+      - id: kinetic_q3
+        text: "When sustaining effort over a longer project, you find it easiest to:"
+        answers:
+          left:
+            label: "Adhere to a consistent schedule and predefined steps."
+            value: -1
+          balanced:
+            label: "Maintain a general direction while adapting your pace and methods."
+            value: 0
+          right:
+            label: "Work intensely when inspiration strikes and rest between bursts."
+            value: 1
+  - id: choice_navigation
+    name: Choice Navigation
+    description: Decision-making style
+    left_label: Calculative
+    right_label: Fluid
+    questions:
+      - id: choice_q1
+        text: "When making important decisions, you tend to:"
+        answers:
+          left:
+            label: "Carefully weigh every option to ensure clarity."
+            value: -1
+          balanced:
+            label: "Use logic and intuition equally, adjusting as needed."
+            value: 0
+          right:
+            label: "Trust your intuition and let decisions unfold naturally."
+            value: 1
+      - id: choice_q2
+        text: "Your approach to uncertainty usually involves:"
+        answers:
+          left:
+            label: "Making precise plans to minimize unpredictability."
+            value: -1
+          balanced:
+            label: "Finding a comfortable balance between planning and flexibility."
+            value: 0
+          right:
+            label: "Staying open and responding intuitively as things unfold."
+            value: 1
+      - id: choice_q3
+        text: "When considering a path with unknown risks but potential rewards, you prioritize:"
+        answers:
+          left:
+            label: "Minimizing risk through careful calculation and preparation."
+            value: -1
+          balanced:
+            label: "Balancing potential risk with potential reward based on both logic and feel."
+            value: 0
+          right:
+            label: "The energetic pull or intuitive 'yes', even if risks aren't fully known."
+            value: 1
+  - id: resonance_field
+    name: Resonance Field
+    description: Emotional interaction in manifestation
+    left_label: Regulated
+    right_label: Expressive
+    questions:
+      - id: resonance_q1
+        text: "When strong emotions arise, you usually:"
+        answers:
+          left:
+            label: "Pause to regulate and stabilize before taking action."
+            value: -1
+          balanced:
+            label: "Allow yourself to feel emotions fully, then adjust as needed."
+            value: 0
+          right:
+            label: "Let your emotions immediately shape your actions and next steps."
+            value: 1
+      - id: resonance_q2
+        text: "Your most effective manifestations occur when you:"
+        answers:
+          left:
+            label: "Intentionally cultivate emotional stability."
+            value: -1
+          balanced:
+            label: "Allow emotions to inform your process but maintain some stability."
+            value: 0
+          right:
+            label: "Freely channel emotional energy into creating outcomes."
+            value: 1
+      - id: resonance_q3
+        text: "How does your internal emotional state typically influence your interactions?"
+        answers:
+          left:
+            label: "I maintain emotional boundaries; my inner state rarely dictates external interactions."
+            value: -1
+          balanced:
+            label: "My emotional state subtly influences my environment, and I adjust based on awareness."
+            value: 0
+          right:
+            label: "My internal state strongly radiates outwards, shaping my interactions."
+            value: 1
+  - id: manifestation_rhythm
+    name: Manifestation Rhythm
+    description: Sustainability and adaptability over time
+    left_label: Structured
+    right_label: Dynamic
+    questions:
+      - id: rhythm_q1
+        text: "You maintain long-term consistency best when:"
+        answers:
+          left:
+            label: "Following predictable cycles and clear routines."
+            value: -1
+          balanced:
+            label: "Balancing consistent routines with occasional shifts in approach."
+            value: 0
+          right:
+            label: "Frequently adjusting your methods based on inspiration and changing energy."
+            value: 1
+      - id: rhythm_q2
+        text: "Your ideal creative process looks most like:"
+        answers:
+          left:
+            label: "A structured series of clearly defined steps."
+            value: -1
+          balanced:
+            label: "A sustainable rhythm blending structure and flow."
+            value: 0
+          right:
+            label: "A dynamic process that evolves as inspiration strikes."
+            value: 1
+      - id: rhythm_q3
+        text: "When collaborating or facing external deadlines, you prefer to:"
+        answers:
+          left:
+            label: "Establish clear timelines and shared structures early on."
+            value: -1
+          balanced:
+            label: "Adapt your personal rhythm to meet shared goals while maintaining flexibility."
+            value: 0
+          right:
+            label: "Respond dynamically to the group energy and adjust your rhythm accordingly."
+            value: 1
+mastery_dimensions:
+  - id: core_priorities
+    name: Core Priorities & Values
+    description: 'These questions help identify your deep values and non-negotiable priorities in the manifestation process.'
+    questions:
+      - id: core_q1
+        text: "When it comes to crafting a life, what is the one area that you refuse to negotiate on? The thing that, if missing, would make everything else feel hollow?"
+        answers:
+          - id: core_q1_creative
+            label: "The ability to express myself fully and create from truth"
+            value: "creative_expression"
+          - id: core_q1_financial
+            label: "A reality where resources flow with ease and choice is never limited"
+            value: "financial_abundance"
+          - id: core_q1_emotional
+            label: "Depth, safety, and connection in how I experience emotions"
+            value: "emotional_fulfillment"
+          - id: core_q1_autonomy
+            label: "The power to direct my own life without restriction"
+            value: "personal_autonomy"
+          - id: core_q1_relationships
+            label: "Relationships that feel deep, real, and nourishing"
+            value: "deep_relationships"
+          - id: core_q1_spiritual
+            label: "A connection to something greater than myself, a thread of meaning that runs through everything"
+            value: "spiritual_connection"
+      - id: core_q2
+        text: "Which of these experiences, when you imagine living it fully, fills you with a deep sense of rightness? Which of these gives you access to the sensation of a \"mission complete\"?"
+        answers:
+          - id: core_q2_mastery
+            label: "Reaching a level of mastery in my craft where my work is recognized and deeply valued"
+            value: "craft_mastery"
+          - id: core_q2_wealth
+            label: "Creating a reality where money is a source of expansion, over limitation, where wealth and security flow with ease"
+            value: "wealth_security"
+          - id: core_q2_peace
+            label: "Living in a state of emotional steadiness, where peace and well-being are my default, not something I have to chase"
+            value: "emotional_peace"
+          - id: core_q2_freedom
+            label: "Holding the reins of my own life, where my time, choices, and direction are entirely my own"
+            value: "personal_freedom"
+          - id: core_q2_connection
+            label: "Being surrounded by relationships that feel like home, nourishing, real, and deeply connected"
+            value: "deep_connection"
+          - id: core_q2_meaning
+            label: "Feeling anchored in something beyond myself, where meaning, mystery, and a higher connection guide my path"
+            value: "higher_meaning"
+      - id: core_q3
+        text: "When you think of how you want to feel most often, which of these do you most want to consistently experience in your reality?"
+        answers:
+          - id: core_q3_confidence
+            label: "Confidence & Self Trust"
+            value: "confidence_trust"
+          - id: core_q3_peace
+            label: "Peace & Ease"
+            value: "peace_ease"
+          - id: core_q3_choice
+            label: "Choice & Autonomy"
+            value: "choice_autonomy"
+          - id: core_q3_stability
+            label: "Stability & Security"
+            value: "stability_security"
+          - id: core_q3_passion
+            label: "Passion & Inspiration"
+            value: "passion_inspiration"
+          - id: core_q3_joy
+            label: "Joy & Excitement"
+            value: "joy_excitement"
+  - id: growth_areas
+    name: Growth & Permission Areas
+    description: 'These questions help diagnose your current growth areas and friction points in your manifestation process.'
+    questions:
+      - id: growth_q1
+        text: "Where do you often find friction or frustration in your manifestation journey?"
+        answers:
+          - id: growth_q1_consistency
+            label: "Staying committed and consistent long-term"
+            value: "consistency_challenge"
+          - id: growth_q1_clarity
+            label: "Getting clear and decisive about what I truly want"
+            value: "clarity_challenge"
+          - id: growth_q1_action
+            label: "Taking inspired action consistently"
+            value: "action_challenge"
+          - id: growth_q1_intuition
+            label: "Trusting my intuition over external opinions"
+            value: "intuition_challenge"
+          - id: growth_q1_emotions
+            label: "Maintaining emotional stability"
+            value: "emotion_challenge"
+          - id: growth_q1_receiving
+            label: "Staying open and receptive, letting things unfold without forcing the outcome"
+            value: "receiving_challenge"
+      - id: growth_q2
+        text: "Which statement resonates most deeply with your most recent challenges?"
+        answers:
+          - id: growth_q2_doubt
+            label: "\"I often second-guess or doubt my decisions.\""
+            value: "decision_doubt"
+          - id: growth_q2_action
+            label: "\"I can clearly envision what I want but struggle to act consistently.\""
+            value: "action_gap"
+          - id: growth_q2_focus
+            label: "\"I act impulsively and struggle to sustain long-term focus.\""
+            value: "focus_challenge"
+          - id: growth_q2_emotions
+            label: "\"I frequently feel emotionally overwhelmed or blocked.\""
+            value: "emotional_block"
+          - id: growth_q2_burnout
+            label: "\"I push too hard, causing burnout instead of flow.\""
+            value: "burnout_pattern"
+          - id: growth_q2_commitment
+            label: "\"I hesitate to fully commit, waiting for certainty.\""
+            value: "commitment_hesitation"
+      - id: growth_q3
+        text: "In which area do you tend to experience the most internal resistance?"
+        answers:
+          - id: growth_q3_trust
+            label: "Trusting my own perceptions and intuition"
+            value: "self_trust_resistance"
+          - id: growth_q3_risk
+            label: "Taking calculated risks toward my desires"
+            value: "risk_resistance"
+          - id: growth_q3_emotion
+            label: "Allowing myself to fully express my emotions authentically"
+            value: "emotional_expression_resistance"
+          - id: growth_q3_vision
+            label: "Clearly defining and sticking to a specific vision"
+            value: "vision_clarity_resistance"
+          - id: growth_q3_momentum
+            label: "Maintaining a consistent rhythm and momentum"
+            value: "momentum_resistance"
+          - id: growth_q3_control
+            label: "Letting go of control and allowing the unexpected"
+            value: "control_resistance"
+  - id: alignment_needs
+    name: Acceptance & Alignment Needs
+    description: 'These questions help pinpoint areas requiring acceptance or alignment adjustments in your manifestation process.'
+    questions:
+      - id: alignment_q1
+        text: "Which of the following feels most relieving to imagine accepting about yourself?"
+        answers:
+          - id: alignment_q1_cycles
+            label: "\"I naturally move in cycles; my momentum comes in waves.\""
+            value: "accept_cycles"
+          - id: alignment_q1_structure
+            label: "\"I thrive best with structure, not constant spontaneity.\""
+            value: "accept_structure"
+          - id: alignment_q1_emotions
+            label: "\"My emotions deeply influence my outcomes, and that's okay.\""
+            value: "accept_emotions"
+          - id: alignment_q1_clarity
+            label: "\"Clarity for me emerges gradually rather than instantly.\""
+            value: "accept_gradual_clarity"
+          - id: alignment_q1_intuition
+            label: "\"Trusting intuition can serve me as powerfully as logic.\""
+            value: "accept_intuition"
+          - id: alignment_q1_flexibility
+            label: "\"My desire for spaciousness and flexibility outweighs my need for certainty.\""
+            value: "accept_flexibility"
+      - id: alignment_q2
+        text: "Which area do you sense you are trying hardest to force or control?"
+        answers:
+          - id: alignment_q2_outcomes
+            label: "Outcomes and timing of my manifestations"
+            value: "control_outcomes"
+          - id: alignment_q2_emotions
+            label: "Emotions and inner states"
+            value: "control_emotions"
+          - id: alignment_q2_consistency
+            label: "Consistency and long-term momentum"
+            value: "control_consistency"
+          - id: alignment_q2_clarity
+            label: "Clarity and specificity of my vision"
+            value: "control_clarity"
+          - id: alignment_q2_decisions
+            label: "Decision-making and certainty"
+            value: "control_decisions"
+          - id: alignment_q2_intuition
+            label: "My intuitive impulses and inspiration"
+            value: "control_intuition"
+      - id: alignment_q3
+        text: "Which state of being do you find yourself most resistant to letting go of control over?"
+        answers:
+          - id: alignment_q3_predictability
+            label: "Predictability and knowing what comes next"
+            value: "control_outcomes"
+          - id: alignment_q3_emotional_evenness
+            label: "Emotional evenness and avoiding inner turbulence"
+            value: "control_emotions"
+          - id: alignment_q3_perceived_progress
+            label: "Perceived progress and the feeling of moving forward consistently"
+            value: "control_consistency"
+          - id: alignment_q3_defined_identity
+            label: "A clearly defined identity and sense of self"
+            value: "control_clarity"
+          - id: alignment_q3_correct_choices
+            label: "Making the 'correct' choices and avoiding mistakes"
+            value: "control_decisions"
+          - id: alignment_q3_rational_understanding
+            label: "Rational understanding and resisting purely intuitive drives"
+            value: "control_intuition"
+  - id: energy_patterns
+    name: Natural Energy Patterns
+    description: 'These questions help uncover your hidden energetic preferences and needs for optimal manifestation.'
+    questions:
+      - id: energy_q1
+        text: "When things are flowing and success feels natural, it's usually because you:"
+        answers:
+          - id: energy_q1_instructions
+            label: "Had clear, step-by-step instructions"
+            value: "clear_instructions"
+          - id: energy_q1_intuition
+            label: "Followed your intuitive instincts spontaneously"
+            value: "intuitive_instincts"
+          - id: energy_q1_inspired
+            label: "Felt emotionally inspired and connected to the task"
+            value: "emotional_inspiration"
+          - id: energy_q1_rhythm
+            label: "Found the right rhythm between structure and flexibility"
+            value: "balanced_rhythm"
+          - id: energy_q1_clarity
+            label: "Allowed yourself time to ease into the clarity of the goal"
+            value: "gradual_clarity"
+          - id: energy_q1_trust
+            label: "Let go of control and trusted the process would unfold naturally"
+            value: "process_trust"
+      - id: energy_q2
+        text: "If you look closely at when you've struggled or felt resistance, it often involved:"
+        answers:
+          - id: energy_q2_rigid
+            label: "Trying to adhere to overly rigid routines"
+            value: "rigid_routines"
+          - id: energy_q2_intuition
+            label: "Ignoring intuitive signals or inner guidance"
+            value: "ignored_intuition"
+          - id: energy_q2_emotions
+            label: "Suppressing or disconnecting from your emotional states"
+            value: "suppressed_emotions"
+          - id: energy_q2_clarity
+            label: "Expecting immediate clarity without allowing yourself to experiment"
+            value: "forced_clarity"
+          - id: energy_q2_cycles
+            label: "Forcing consistent action instead of embracing your natural energy cycles"
+            value: "ignored_cycles"
+          - id: energy_q2_control
+            label: "Overplanning and trying to control outcomes tightly"
+            value: "overcontrolling"
+      - id: energy_q3
+        text: "You feel most energized and naturally productive when you:"
+        answers:
+          - id: energy_q3_routines
+            label: "Work within clear routines that offer structure and predictability"
+            value: "structured_productivity"
+          - id: energy_q3_freedom
+            label: "Have the freedom to follow your own flow throughout the day"
+            value: "flexible_productivity"
+          - id: energy_q3_emotions
+            label: "Feel emotionally connected to what you're creating, it has meaning"
+            value: "emotional_productivity"
+          - id: energy_q3_motivation
+            label: "Ride spontaneous bursts of inspiration and act on them quickly"
+            value: "spontaneous_productivity"
+          - id: energy_q3_change
+            label: "Shift your approach often, based on what the moment calls for"
+            value: "adaptive_productivity"
+          - id: energy_q3_balance
+            label: "Blend planning with intuition, adjusting as you go"
+            value: "balanced_productivity"
+      - id: energy_q4
+        text: "Your ideal supportive environment feels:"
+        answers:
+          - id: energy_q4_calm
+            label: "Calm, structured, and predictable"
+            value: "structured_environment"
+          - id: energy_q4_stimulating
+            label: "Stimulating, flexible, and evolving"
+            value: "dynamic_environment"
+          - id: energy_q4_supportive
+            label: "Deeply supportive emotionally"
+            value: "emotionally_supportive_environment"
+          - id: energy_q4_inspiring
+            label: "Inspiring, adaptable, and intuitively affirming"
+            value: "inspiring_environment"
+          - id: energy_q4_balanced
+            label: "Balanced between clear planning and open-ended exploration"
+            value: "balanced_environment"
+          - id: energy_q4_pressure_free
+            label: "Free from pressure, allowing gradual clarity and organic flow"
+            value: "pressure_free_environment"
+scoring_rules:
+  spectrum_priority_order:
+    - cognitive_alignment
+    - kinetic_drive
+    - choice_navigation
+    - perceptual_focus
+    - resonance_field
+    - manifestation_rhythm
+  placement_mapping:
+    strong_left: strongly_structured
+    left_leaning: structured
+    left: structured
+    balanced: balanced
+    right: fluid
+    right_leaning: fluid
+    strong_right: strongly_fluid
+  mastery_spectrum_influence:
+    core_priorities:
+      creative_expression:
+        resonance_field: 0.5
+        perceptual_focus: 0.5
+      financial_abundance:
+        perceptual_focus: -0.5
+        kinetic_drive: -0.3
+      emotional_fulfillment:
+        resonance_field: 0.5
+        cognitive_alignment: 0.3
+      personal_autonomy:
+        choice_navigation: 0.5
+        kinetic_drive: 0.3
+      deep_relationships:
+        resonance_field: 0.3
+        perceptual_focus: 0.3
+      spiritual_connection:
+        cognitive_alignment: 0.5
+        choice_navigation: 0.3
+      craft_mastery:
+        kinetic_drive: -0.5
+        manifestation_rhythm: -0.3
+      wealth_security:
+        manifestation_rhythm: -0.5
+        perceptual_focus: -0.3
+      emotional_peace:
+        resonance_field: -0.5
+        manifestation_rhythm: -0.3
+      personal_freedom:
+        manifestation_rhythm: 0.5
+        choice_navigation: 0.5
+      deep_connection:
+        resonance_field: 0.5
+        cognitive_alignment: 0.3
+      higher_meaning:
+        cognitive_alignment: 0.5
+        perceptual_focus: 0.3
+      confidence_trust:
+        choice_navigation: 0.5
+        cognitive_alignment: 0.3
+      peace_ease:
+        kinetic_drive: 0.3
+        manifestation_rhythm: 0.5
+      choice_autonomy:
+        choice_navigation: 0.5
+        cognitive_alignment: 0.3
+      stability_security:
+        manifestation_rhythm: -0.5
+        perceptual_focus: -0.5
+      passion_inspiration:
+        resonance_field: 0.5
+        kinetic_drive: 0.5
+      joy_excitement:
+        kinetic_drive: 0.5
+        resonance_field: 0.5
+    growth_areas:
+      consistency_challenge:
+        manifestation_rhythm: -0.3
+        kinetic_drive: -0.3
+      clarity_challenge:
+        perceptual_focus: -0.3
+        cognitive_alignment: -0.3
+      action_challenge:
+        kinetic_drive: -0.3
+        choice_navigation: -0.3
+      intuition_challenge:
+        cognitive_alignment: 0.5
+        choice_navigation: 0.3
+      emotion_challenge:
+        resonance_field: 0.5
+        cognitive_alignment: 0.3
+      receiving_challenge:
+        perceptual_focus: 0.5
+        manifestation_rhythm: 0.3
+      decision_doubt:
+        choice_navigation: -0.5
+        cognitive_alignment: -0.3
+      action_gap:
+        kinetic_drive: -0.5
+        choice_navigation: -0.3
+      focus_challenge:
+        perceptual_focus: -0.5
+        manifestation_rhythm: -0.3
+      emotional_block:
+        resonance_field: -0.5
+        cognitive_alignment: -0.3
+      burnout_pattern:
+        manifestation_rhythm: 0.5
+        kinetic_drive: 0.3
+      commitment_hesitation:
+        choice_navigation: 0.5
+        perceptual_focus: 0.3
+      self_trust_resistance:
+        cognitive_alignment: 0.5
+        choice_navigation: 0.3
+      risk_resistance:
+        choice_navigation: 0.5
+        kinetic_drive: 0.3
+      emotional_expression_resistance:
+        resonance_field: 0.5
+        cognitive_alignment: 0.3
+      vision_clarity_resistance:
+        perceptual_focus: -0.5
+        cognitive_alignment: -0.3
+      momentum_resistance:
+        kinetic_drive: 0.5
+        manifestation_rhythm: 0.3
+      control_resistance:
+        perceptual_focus: 0.5
+        choice_navigation: 0.5
+    alignment_needs:
+      accept_cycles:
+        manifestation_rhythm: 0.5
+        kinetic_drive: 0.3
+      accept_structure:
+        kinetic_drive: -0.5
+        manifestation_rhythm: -0.3
+      accept_emotions:
+        resonance_field: 0.5
+        cognitive_alignment: 0.3
+      accept_gradual_clarity:
+        perceptual_focus: 0.5
+        manifestation_rhythm: 0.3
+      accept_intuition:
+        cognitive_alignment: 0.5
+        choice_navigation: 0.5
+      accept_flexibility:
+        perceptual_focus: 0.5
+        manifestation_rhythm: 0.5
+      control_outcomes:
+        perceptual_focus: -0.5
+        manifestation_rhythm: -0.5
+      control_emotions:
+        resonance_field: -0.5
+        cognitive_alignment: -0.3
+      control_consistency:
+        manifestation_rhythm: -0.5
+        kinetic_drive: -0.5
+      control_clarity:
+        perceptual_focus: -0.5
+        cognitive_alignment: -0.3
+      control_decisions:
+        choice_navigation: -0.5
+        cognitive_alignment: -0.3
+      control_intuition:
+        cognitive_alignment: -0.5
+        choice_navigation: -0.5
+    energy_patterns:
+      clear_instructions:
+        perceptual_focus: -0.5
+        choice_navigation: -0.3
+      intuitive_instincts:
+        cognitive_alignment: 0.5
+        choice_navigation: 0.5
+      emotional_inspiration:
+        resonance_field: 0.5
+        cognitive_alignment: 0.3
+      balanced_rhythm:
+        manifestation_rhythm: 0
+        kinetic_drive: 0
+      gradual_clarity:
+        perceptual_focus: 0.5
+        cognitive_alignment: 0.3
+      process_trust:
+        choice_navigation: 0.5
+        manifestation_rhythm: 0.3
+      rigid_routines:
+        manifestation_rhythm: -0.5
+        kinetic_drive: -0.5
+      ignored_intuition:
+        cognitive_alignment: 0.5
+        choice_navigation: 0.3
+      structured_productivity:
+        kinetic_drive: -0.5
+        perceptual_focus: -0.3
+      spontaneous_productivity:
+        kinetic_drive: 0.5
+        manifestation_rhythm: 0.3
+      structured_environment:
+        manifestation_rhythm: -0.5
+        perceptual_focus: -0.3
+      dynamic_environment:
+        manifestation_rhythm: 0.5
+        perceptual_focus: 0.3
+results:
+  typology_profiles:
+    - id: master_architect
+      typology_name: Master Architect
+      headline: "You build with exceptional precision and methodology. You see reality like a detailed blueprint and bring visions to life through meticulous planning, clear systems, and consistent implementation. Your remarkable strength is in creating robust frameworks that reliably produce results."
+      description:
+        essence: "disciplined creation through comprehensive systems"
+        strength: "creating highly structured frameworks that consistently produce results"
+        challenge: "allowing space for the unexpected within your carefully designed plans"
+        approach: "You meticulously design and implement systems, ensuring each element serves the greater structure."
+        growth: "learning to maintain your powerful structure while allowing for inspired deviation"
+      tips:
+        ideal_approaches:
+          strengths: "clarity, precision, consistency, methodical execution"
+          approaches:
+            - "Map out your manifestation path with solid plans and measurable milestones."
+            - "Use visualizations that are crystal-clear and time-specific."
+            - "Track your momentum like data, watch what builds, what stalls."
+            - "Lock in routines that nourish your focus and energy."
+            - "Apply logic to dissolve and learn from tension, don't just push through it."
+        common_misalignments:
+          - "Getting so locked into the plan that you leave no room for surprise"
+          - "Waiting for the \"perfect\" setup instead of moving with what you have"
+          - "Ignoring your intuition when it doesn't show up in a spreadsheet"
+          - "Getting discouraged when outcomes don't match the timeline you imagined"
+          - "Focusing too much on the method and forgetting the why"
+        shifts_needed:
+          - "Make more space for your intuition to speak, even if it whispers at first."
+          - "Set aside analytical thinking now and then, even 10 minutes of inner listening matters."
+          - "Learn to sense when structure is serving, and when it's stalling the process."
+        acceptance_permissions:
+          - "You're allowed to not know. Let uncertainty be part of the process, not something to fix."
+          - "You're allowed to trust your intuition, even if it doesn't match the data."
+          - "You're allowed to pivot when inspiration pulls you somewhere new."
+        energy_support_tools:
+          - "Intuition practices with structure, prompts, frameworks, things with clear edges"
+          - "Systems that flex in small ways without losing integrity"
+          - "Measurable ways to track inner growth, your version of data, not just numbers"
+          - "Daily practices like Lectio Divina or structured morning pages to commune with inner clarity"
+          - "Vedic or Transcendental Meditation to support commitment to inner stillness"
+          - "Saturn-aligned planning rituals using astrology to give your days cosmic architecture"
+          - "Box breathing for grounding and Ayurvedic daily routines (Dinacharya) for consistency"
+          - "Energetic accountability check-ins that keep you in integrity with your sacred timeline"
+          - "<a href='https://www.peathefeary.com/realization-toolkit-membership-information' target='_blank' class='text-amber-700 hover:underline'>The Refiner</a> tool to fine-tune what's true and release what isn't, honoring your love of measurable growth"
+    - id: strategic_architect
+      typology_name: Strategic Architect
+      headline: "You build with intention. You see reality like a blueprint and bring visions to life through clarity, planning, and steady movement. Your strength is in creating grounded systems that actually work. You're not just manifesting dreams, you're engineering them."
+      description:
+        essence: "methodical creation through clear structure"
+        strength: "designing and implementing effective systems that produce reliable results"
+        challenge: "recognizing when flexibility would better serve your objectives"
+        approach: "You carefully plan and structure your manifestation process, ensuring each step builds logically upon the last."
+        growth: "developing the ability to adapt your structured approach when circumstances change"
+      tips:
+        ideal_approaches:
+          strengths: "clarity, precision, consistency, methodical execution"
+          approaches:
+            - "Map out your manifestation path with solid plans and measurable milestones."
+            - "Use visualizations that are crystal-clear and time-specific."
+            - "Track your momentum like data, watch what builds, what stalls."
+            - "Lock in routines that nourish your focus and energy."
+            - "Apply logic to dissolve and learn from tension, don't just push through it."
+        common_misalignments:
+          - "Getting so locked into the plan that you leave no room for surprise"
+          - "Waiting for the \"perfect\" setup instead of moving with what you have"
+          - "Ignoring your intuition when it doesn't show up in a spreadsheet"
+          - "Getting discouraged when outcomes don't match the timeline you imagined"
+          - "Focusing too much on the method and forgetting the why"
+        shifts_needed:
+          - "Make more space for your intuition to speak, even if it whispers at first."
+          - "Set aside analytical thinking now and then, even 10 minutes of inner listening matters."
+          - "Learn to sense when structure is serving, and when it's stalling the process."
+        acceptance_permissions:
+          - "You're allowed to not know. Let uncertainty be part of the process, not something to fix."
+          - "You're allowed to trust your intuition, even if it doesn't match the data."
+          - "You're allowed to pivot when inspiration pulls you somewhere new."
+        energy_support_tools:
+          - "Intuition practices with structure, prompts, frameworks, things with clear edges"
+          - "Systems that flex in small ways without losing integrity"
+          - "Measurable ways to track inner growth, your version of data, not just numbers"
+          - "Daily practices like Lectio Divina or structured morning pages to commune with inner clarity"
+          - "Vedic or Transcendental Meditation to support commitment to inner stillness"
+          - "Saturn-aligned planning rituals using astrology to give your days cosmic architecture"
+          - "Box breathing for grounding and Ayurvedic daily routines (Dinacharya) for consistency"
+          - "Energetic accountability check-ins that keep you in integrity with your sacred timeline"
+          - "<a href='https://www.peathefeary.com/realization-toolkit-membership-information' target='_blank' class='text-amber-700 hover:underline'>The Refiner</a> tool to fine-tune what's true and release what isn't, honoring your love of measurable growth"
+    - id: structured_integrator
+      typology_name: Structured Integrator
+      headline: "You lead with powerful structure but recognize the value of adaptation. Your mind organizes with remarkable precision, while still leaving space for organic development. You excel at creating systems that maintain their integrity while allowing for natural evolution."
+      description:
+        essence: "structured creation with space for adaptation"
+        strength: "building robust systems that remain adaptable to changing conditions"
+        challenge: "determining when to maintain structure versus when to allow flexibility"
+        approach: "You create clear frameworks first, then allow for mindful adjustments as implementation proceeds."
+        growth: "further refining your ability to determine when structure serves and when flexibility is needed"
+      tips:
+        ideal_approaches:
+          strengths: "strategic flexibility, practical intuition, organized adaptability"
+          approaches:
+            - "Build frameworks with clear priorities that can flex without falling apart."
+            - "Move between planned structure and intuitive adjustments as needed."
+            - "Trust data, but leave the door open for synchronicity."
+            - "Keep consistent anchors while letting inspiration surprise you."
+            - "Know when to pause, reflect, and let new clarity rise."
+        common_misalignments:
+          - "Reaching for structure when the moment is asking for softness"
+          - "Overthinking intuitive nudges until they lose their spark"
+          - "Building systems that start helpful and end up restrictive"
+          - "Getting impatient with things that unfold outside your control"
+          - "Writing off intuitive or nonlinear methods as unreliable"
+        shifts_needed:
+          - "Notice when you're defaulting to structure out of habit, not alignment."
+          - "Let yourself trust the part of you that knows when to plan and when to flow."
+          - "Design containers that move with you, they don't have to stay rigid to be effective."
+        acceptance_permissions:
+          - "You're allowed to sense when it's time to loosen the plan."
+          - "You're allowed to be a blend, you don't have to pick a side."
+          - "You're allowed to shift your systems as you grow."
+        energy_support_tools:
+          - "Rituals that alternate between planning and play"
+          - "Decision-making tools that let logic and intuition collaborate"
+          - "Routines with soft touchpoints for creativity to slip in"
+          - "Habit stacking aligned with lunar phases to harmonize structure with cosmic rhythm"
+          - "Tarot journaling interpreted through a logic-meets-intuition lens"
+          - "Time Blocking infused with intuitive check-ins to stay motivated without overextending"
+          - "Grounding mantras, color therapy, and EFT tapping to balance drive with surrender"
+          - "<a href='https://www.peathefeary.com/realization-toolkit-membership-information' target='_blank' class='text-amber-700 hover:underline'>The Refiner</a> tool to fine-tune what's true and release what isn't, honoring evolution with mystical precision"
+    - id: practical_synthesizer
+      typology_name: Practical Synthesizer
+      headline: "You lead with structure but make space for intuitive influence. Your mind organizes with ease, and your process flexes just enough to invite in surprise. You're pragmatic but not rigid. You listen for alignment before locking in a plan."
+      description:
+        essence: "practical creation with room for adaptation"
+        strength: "balancing clear structure with openness to organic development"
+        challenge: "trusting intuitive adjustments within your structured approach"
+        approach: "You create frameworks that provide direction while remaining open to refinement as you progress."
+        growth: "deepening your trust in both structured planning and intuitive adjustment"
+      tips:
+        ideal_approaches:
+          strengths: "strategic flexibility, practical intuition, organized adaptability"
+          approaches:
+            - "Build frameworks with clear priorities that can flex without falling apart."
+            - "Move between planned structure and intuitive adjustments as needed."
+            - "Trust data, but leave the door open for synchronicity."
+            - "Keep consistent anchors while letting inspiration surprise you."
+            - "Know when to pause, reflect, and let new clarity rise."
+        common_misalignments:
+          - "Reaching for structure when the moment is asking for softness"
+          - "Overthinking intuitive nudges until they lose their spark"
+          - "Building systems that start helpful and end up restrictive"
+          - "Getting impatient with things that unfold outside your control"
+          - "Writing off intuitive or nonlinear methods as unreliable"
+        shifts_needed:
+          - "Notice when you're defaulting to structure out of habit, not alignment."
+          - "Let yourself trust the part of you that knows when to plan and when to flow."
+          - "Design containers that move with you, they don't have to stay rigid to be effective."
+        acceptance_permissions:
+          - "You're allowed to sense when it's time to loosen the plan."
+          - "You're allowed to be a blend, you don't have to pick a side."
+          - "You're allowed to shift your systems as you grow."
+        energy_support_tools:
+          - "Rituals that alternate between planning and play"
+          - "Decision-making tools that let logic and intuition collaborate"
+          - "Routines with soft touchpoints for creativity to slip in"
+          - "Habit stacking aligned with lunar phases to harmonize structure with cosmic rhythm"
+          - "Tarot journaling interpreted through a logic-meets-intuition lens"
+          - "Time Blocking infused with intuitive check-ins to stay motivated without overextending"
+          - "Grounding mantras, color therapy, and EFT tapping to balance drive with surrender"
+          - "<a href='https://www.peathefeary.com/realization-toolkit-membership-information' target='_blank' class='text-amber-700 hover:underline'>The Refiner</a> tool to fine-tune what's true and release what isn't, honoring evolution with mystical precision"
+    - id: structured_visionary
+      typology_name: Structured Visionary
+      headline: "You bring powerful structure to intuitive vision. You excel at creating robust systems that serve inspired ideas, bringing exceptional discipline to creative flow. Your unique strength lies in translating ethereal concepts into practical reality with remarkable precision."
+      description:
+        essence: "bringing disciplined structure to intuitive vision"
+        strength: "implementing highly organized systems that serve inspired ideas"
+        challenge: "allowing intuitive guidance to sometimes redirect your structured approach"
+        approach: "You receive intuitive insights, then apply methodical processes to manifest them in tangible form."
+        growth: "developing greater trust in the interplay between precise structure and intuitive guidance"
+      tips:
+        ideal_approaches:
+          strengths: "stable foundations, intuitive expansion, creative implementation"
+          approaches:
+            - "Set clear intentions and let them stretch in unexpected directions."
+            - "Work in focused bursts, then unplug to receive what's next."
+            - "Ground intuitive downloads through systems that support, not suffocate."
+            - "Design rituals or systems that hold space for inspiration to land."
+            - "Mix planning with energetic alignment like you're mixing paint."
+        common_misalignments:
+          - "Trying to organize inspiration before it fully arrives"
+          - "Overriding your gut with what seems \"smarter\" on paper"
+          - "Creating rigid plans that don't leave room for breath"
+          - "Resisting surrender because it feels like giving up control"
+          - "Dismissing energy work or subtle shifts as not \"real\" progress"
+        shifts_needed:
+          - "Let structure support your intuition, not silence it."
+          - "Create simple, open systems that hold ideas without analyzing them to death."
+          - "Let your creativity stretch out before you try to shape it."
+        acceptance_permissions:
+          - "You're allowed to want structure and still be deeply intuitive."
+          - "You're allowed to design containers that bend with you."
+          - "You're allowed to trust timing over timelines."
+        energy_support_tools:
+          - "Containers for intuition that don't box it in"
+          - "Practices that turn sparks of insight into something real"
+          - "Grounding rituals that hold your energy without muting it"
+          - "Vision boards inside intentional containers where inspiration can land and stay"
+          - "Morning energy mapping and chakra intentions"
+          - "40-day Kundalini kriya cycles to let energy flow inside a devotional rhythm"
+          - "Calendared \"download\" sessions and breath-led intuitive writing"
+          - "Themed movement rituals (like \"Fire Fridays\")"
+          - "<a href='https://www.peathefeary.com/timeline-jumping' target='_blank' class='text-amber-700 hover:underline'>The Timeline Jumping Audio</a> to give your intuitive leaps a structure without clipping your wings"
+    - id: grounded_visionary
+      typology_name: Grounded Visionary
+      headline: "You bring the sky to the ground. Structure is your anchor, intuition is your compass. You create from a steady center, but you're not afraid to pivot when inspiration calls. You hold form and flow in the same hand."
+      description:
+        essence: "bringing practical form to intuitive guidance"
+        strength: "translating inspired ideas into workable structures"
+        challenge: "maintaining momentum when structure and inspiration seem at odds"
+        approach: "You balance structural thinking with intuitive listening, finding practical ways to implement inspired ideas."
+        growth: "developing even greater harmony between your structured and intuitive aspects"
+      tips:
+        ideal_approaches:
+          strengths: "stable foundations, intuitive expansion, creative implementation"
+          approaches:
+            - "Set clear intentions and let them stretch in unexpected directions."
+            - "Work in focused bursts, then unplug to receive what's next."
+            - "Ground intuitive downloads through systems that support, not suffocate."
+            - "Design rituals or systems that hold space for inspiration to land."
+            - "Mix planning with energetic alignment like you're mixing paint."
+        common_misalignments:
+          - "Trying to organize inspiration before it fully arrives"
+          - "Overriding your gut with what seems \"smarter\" on paper"
+          - "Creating rigid plans that don't leave room for breath"
+          - "Resisting surrender because it feels like giving up control"
+          - "Dismissing energy work or subtle shifts as not \"real\" progress"
+        shifts_needed:
+          - "Let structure support your intuition, not silence it."
+          - "Create simple, open systems that hold ideas without analyzing them to death."
+          - "Let your creativity stretch out before you try to shape it."
+        acceptance_permissions:
+          - "You're allowed to want structure and still be deeply intuitive."
+          - "You're allowed to design containers that bend with you."
+          - "You're allowed to trust timing over timelines."
+        energy_support_tools:
+          - "Containers for intuition that don't box it in"
+          - "Practices that turn sparks of insight into something real"
+          - "Grounding rituals that hold your energy without muting it"
+          - "Vision boards inside intentional containers where inspiration can land and stay"
+          - "Morning energy mapping and chakra intentions"
+          - "40-day Kundalini kriya cycles to let energy flow inside a devotional rhythm"
+          - "Calendared \"download\" sessions and breath-led intuitive writing"
+          - "Themed movement rituals (like \"Fire Fridays\")"
+          - "<a href='https://www.peathefeary.com/timeline-jumping' target='_blank' class='text-amber-700 hover:underline'>The Timeline Jumping Audio</a> to give your intuitive leaps a structure without clipping your wings"
+    - id: anchor_for_inspiration
+      typology_name: Anchor for Inspiration
+      headline: "You bring essential grounding to powerful vision. Structure serves as your foundation while deep intuition guides your direction. You excel at creating just enough form to channel remarkably fluid creative energy, without restricting its natural flow."
+      description:
+        essence: "providing structural support for highly intuitive creation"
+        strength: "anchoring visionary insights with practical implementation"
+        challenge: "creating enough structure without dampening powerful inspiration"
+        approach: "You receive strong intuitive guidance, then develop appropriate structures to bring it into form."
+        growth: "refining your ability to determine exactly how much structure serves each inspired vision"
+      tips:
+        ideal_approaches:
+          strengths: "intuitive discipline, inspired planning, grounded magic"
+          approaches:
+            - "Let your inner knowing set the vision, then map the moves."
+            - "Create gentle structures that support your visionary nature."
+            - "Let energy speak first, then act from that clarity."
+            - "Use intuitive guidance to inform strategic planning."
+            - "Implement consistent practices that honor your need for creative freedom."
+        common_misalignments:
+          - "Building cages when you meant to build containers"
+          - "Talking yourself out of intuitive truths if they sound too \"out there\""
+          - "Prioritizing execution over alignment and burning out"
+          - "Rushing timelines instead of trusting divine pacing"
+          - "Downplaying your own vibrational work like it's not enough"
+        shifts_needed:
+          - "Let structure become a bridge, not a barricade."
+          - "Let your structured side serve the vision, not try to control it."
+          - "Use grounding rituals when your energy starts to float too far out."
+        acceptance_permissions:
+          - "You're allowed to trust your knowing first, logic can catch up later."
+          - "You're allowed to follow intuitive hits even when they don't make 'sense.'"
+          - "You're allowed to move without explaining every step."
+        energy_support_tools:
+          - "Let vision come first, then build the scaffolding to hold it"
+          - "Intuition check-ins that ground you without overriding your fire"
+          - "Action steps that flow from energy, not obligation"
+          - "Scripting and altar ceremonies to name your desires"
+          - "Subtle scaffolding with intuitive digital tools like Notion"
+          - "Solar plexus work through breath, walking, and core activation"
+          - "Batched creative rituals and chakra-based journaling"
+          - "<a href='https://www.peathefeary.com/shop/p/7eleczgn0uipxp2lwdhkeczqq6l2sb-r2wcr-wd9h5-yhryn' target='_blank' class='text-amber-700 hover:underline'>Decide to Trust (print</a> or mantra) as your compass, reminding that clarity often comes after the leap"
+    - id: adaptive_strategist
+      typology_name: Adaptive Strategist
+      headline: "You bring important flexibility to powerful structure. Your adaptability complements your exceptional discipline, allowing you to refine methodical approaches through responsive adjustment. You excel at maintaining structural integrity while evolving implementation."
+      description:
+        essence: "bringing adaptability to highly structured creation"
+        strength: "maintaining structural integrity while allowing responsive evolution"
+        challenge: "knowing when to preserve structure versus when to introduce adaptation"
+        approach: "You respect established systems while introducing mindful adjustments to optimize outcomes."
+        growth: "developing even greater discernment about when each approach best serves"
+      tips:
+        ideal_approaches:
+          strengths: "adaptable systems, harmonized logic, grounded creativity"
+          approaches:
+            - "Adopt structures, adaptable frameworks that flow, not tight rope, more riverbank."
+            - "Anchor consistent practices while evolving them over time."
+            - "Let logic and intuition co-pilot your moves."
+            - "Build systems that leave room for breath and built-in flexibility."
+            - "Shift between doing phases and integrating alignment-focused phases."
+        common_misalignments:
+          - "Defaulting to logic even when the call is emotional or energetic"
+          - "Imposing unnecessary systems just to feel safe"
+          - "Measuring your worth by results instead of resonance"
+          - "Doubting your own intuition if it can't be explained"
+          - "Resisting ease, mistaking it for inconsistency"
+        shifts_needed:
+          - "Pay attention to when structure is helpful, and when it becomes armor."
+          - "Build systems that adapt as you do, structure isn't meant to trap you."
+          - "Let yourself act on nudges that don't always make logical sense."
+        acceptance_permissions:
+          - "You're allowed to change your process without calling it inconsistency."
+          - "You're allowed to lean into structure when it actually serves you."
+          - "You're allowed to work with both logic and feeling, they're not in conflict."
+        energy_support_tools:
+          - "Systems that shift with your seasons"
+          - "Tools that help you feel when to lean into structure or soften into flow"
+          - "Integration practices that hold both strategy and soul"
+          - "Seasonal rituals like solstice ceremonies or equinox resets"
+          - "Blending muscle testing or pendulum work with rational insight for decision-making"
+          - "Gentle and adaptive morning routines with mood-matching journal prompts"
+          - "Grounding walks to connect with earth"
+          - "Weekly reflections paired with soul-led planning for steady blooming"
+          - "<a href='https://www.peathefeary.com/realization-toolkit-membership-information' target='_blank' class='text-amber-700 hover:underline'>Bankroll Spiral</a> to support your unfolding by bringing grace to wealth and worth expansion"
+    - id: integrated_strategist
+      typology_name: Integrated Strategist
+      headline: "You adapt with intention. Your ability to synthesize meets your gift for execution. You're a shapeshifter who knows how to build. You move between insight and implementation with grace, grounding your vision in form."
+      description:
+        essence: "adaptive creation with meaningful structure"
+        strength: "integrating multiple approaches while maintaining practical focus"
+        challenge: "trusting your adaptability within structured contexts"
+        approach: "You move fluidly between different perspectives, using structure to integrate what emerges."
+        growth: "deepening your trust in both your adaptive nature and structural abilities"
+      tips:
+        ideal_approaches:
+          strengths: "adaptable systems, harmonized logic, grounded creativity"
+          approaches:
+            - "Adopt structures, adaptable frameworks that flow, not tight rope, more riverbank."
+            - "Anchor consistent practices while evolving them over time."
+            - "Let logic and intuition co-pilot your moves."
+            - "Build systems that leave room for breath and built-in flexibility."
+            - "Shift between doing phases and integrating alignment-focused phases."
+        common_misalignments:
+          - "Defaulting to logic even when the call is emotional or energetic"
+          - "Imposing unnecessary systems just to feel safe"
+          - "Measuring your worth by results instead of resonance"
+          - "Doubting your own intuition if it can't be explained"
+          - "Resisting ease, mistaking it for inconsistency"
+        shifts_needed:
+          - "Pay attention to when structure is helpful, and when it becomes armor."
+          - "Build systems that adapt as you do, structure isn't meant to trap you."
+          - "Let yourself act on nudges that don't always make logical sense."
+        acceptance_permissions:
+          - "You're allowed to change your process without calling it inconsistency."
+          - "You're allowed to lean into structure when it actually serves you."
+          - "You're allowed to work with both logic and feeling, they're not in conflict."
+        energy_support_tools:
+          - "Systems that shift with your seasons"
+          - "Tools that help you feel when to lean into structure or soften into flow"
+          - "Integration practices that hold both strategy and soul"
+          - "Seasonal rituals like solstice ceremonies or equinox resets"
+          - "Blending muscle testing or pendulum work with rational insight for decision-making"
+          - "Gentle and adaptive morning routines with mood-matching journal prompts"
+          - "Grounding walks to connect with earth"
+          - "Weekly reflections paired with soul-led planning for steady blooming"
+          - "<a href='https://www.peathefeary.com/realization-toolkit-membership-information' target='_blank' class='text-amber-700 hover:underline'>Bankroll Spiral</a> to support your unfolding by bringing grace to wealth and worth expansion"
+    - id: harmonic_integrator
+      typology_name: Harmonic Integrator
+      headline: "You are the center point. You naturally hold paradox without needing to collapse it. Structure and flow, logic and feeling, none of it is separate in your world. You make wholeness feel like home."
+      description:
+        essence: "integrated creation that honors multiple approaches"
+        strength: "harmonizing seemingly opposite approaches into cohesive wholes"
+        challenge: "maintaining your center when external forces pull toward extremes"
+        approach: "You naturally perceive multiple perspectives and weave them together in balanced implementation."
+        growth: "deepening your capacity to embody integration even in challenging circumstances"
+      tips:
+        ideal_approaches:
+          strengths: "dynamic integration, responsive flow, holistic creation"
+          approaches:
+            - "Shape-shift between structure and intuition based on the moment."
+            - "Blend the practical and the energetic in equal measure."
+            - "Let your process evolve without losing its core."
+            - "Plan without control, allow without passivity."
+            - "Use both data and energy as feedback, not rules."
+        common_misalignments:
+          - "Second-guessing yourself when there's no clear \"right\" path"
+          - "Trying to include every approach and diluting your power"
+          - "Spreading energy too thin without anchoring it somewhere"
+          - "Switching gears too often to let anything root"
+          - "Avoiding full commitment in either direction, structure or surrender"
+        shifts_needed:
+          - "Don't overthink your process. Let it be messy sometimes."
+          - "You don't need a perfect plan. You already have the tools, use what's here."
+          - "When it's time to choose, listen to both mind and body. Then move."
+        acceptance_permissions:
+          - "You're allowed to not commit to one way of being."
+          - "You're allowed to integrate without choosing a single lane."
+          - "You're allowed to be the bridge, the in-between is a real place."
+        energy_support_tools:
+          - "Frameworks for weaving different modalities into a whole"
+          - "Tools that help you feel what's needed now, not what should work"
+          - "Regular check-ins to make space for inner recalibration"
+          - "Oracle cards or intuitive body scans for judgment-free check-ins"
+          - "Altars across modalities, combining breathwork with sound therapy"
+          - "Dream journaling, water rituals, and aromatherapy guided by body wisdom"
+          - "<a href='https://www.peathefeary.com/realization-toolkit-membership-information' target='_blank' class='text-amber-700 hover:underline'>The Realization Toolkit Membership</a> as a wellspring for your multidimensional nature"
+    - id: flowing_harmonizer
+      typology_name: Flowing Harmonizer
+      headline: "You lead with inner harmony and move through life like water. You invite clarity but don't demand it. Your creative process is intuitive, expansive, and still somehow grounded. You trust the rhythm of things."
+      description:
+        essence: "harmonious creation through adaptable flow"
+        strength: "maintaining center while flowing with intuitive guidance"
+        challenge: "creating enough structure to manifest intuitive insights"
+        approach: "You listen deeply to inner guidance while maintaining enough form to bring it into reality."
+        growth: "developing greater capacity to anchor your intuitive flow when needed"
+      tips:
+        ideal_approaches:
+          strengths: "intuitive adaptability, emotional attunement, expansive grounding"
+          approaches:
+            - "Let inner guidance lead, while maintaining practical grounding."
+            - "Build soft structures that hold space, not pressure."
+            - "Translate vision into action one inspired step at a time."
+            - "Use intuitive practices with consistent implementation."
+            - "Alternate between expansive exploration and focused integration."
+        common_misalignments:
+          - "Staying in the dreamspace when action would actually help"
+          - "Losing your grounding in the swirl of possibility"
+          - "Avoiding structure because it feels like restriction"
+          - "Floating through phases that need some intentional rooting"
+          - "Ignoring data or plans that could strengthen your magic"
+        shifts_needed:
+          - "Honor your flow, but don't fear the structure that could support it."
+          - "A little bit of grounding can help your creativity land."
+          - "Make space for alignment, but also make space for follow-through."
+        acceptance_permissions:
+          - "You're allowed to lead with your intuition and still be supported."
+          - "You're allowed to follow what lights you up without abandoning the real world."
+          - "You're allowed to hold freedom and form in the same breath."
+        energy_support_tools:
+          - "Planning systems that breathe, minimal but supportive"
+          - "Practices that keep you tethered while you expand"
+          - "Frameworks for intuitive choices that still lead to grounded outcomes"
+          - "Rituals tied to your natural energy peaks"
+          - "Soft manifestation and intuitive weekly check-ins"
+          - "Morning light exposure to help land in your day"
+          - "Grounding teas, intuitive sketching, vocal toning, and body-led meditations"
+          - "Vision maps and circular calendars that hold dreams without rushing them"
+          - "<a href='https://www.peathefeary.com/what-is-rich-terrain' target='_blank' class='text-amber-700 hover:underline'>Rich Terrain</a> to help you plant and prune in rhythm with your own seasons"
+    - id: flow_navigator
+      typology_name: Flow Navigator
+      headline: "You bring essential grounding to highly intuitive creation. While honoring powerful creative currents, you maintain enough center to navigate them effectively. You excel at staying oriented within expansive vision, helping inspiration find tangible expression."
+      description:
+        essence: "providing centered awareness within highly intuitive flow"
+        strength: "remaining oriented while swimming in deep creative currents"
+        challenge: "maintaining enough structure to translate powerful inspiration into form"
+        approach: "You honor intuitive guidance while providing just enough framework to manifest its essence."
+        growth: "refining your ability to remain effectively centered within highly fluid creation"
+      tips:
+        ideal_approaches:
+          strengths: "intuitive adaptability, emotional attunement, expansive grounding"
+          approaches:
+            - "Let inner guidance lead, while maintaining practical grounding."
+            - "Build soft structures that hold space, not pressure."
+            - "Translate vision into action one inspired step at a time."
+            - "Use intuitive practices with consistent implementation."
+            - "Alternate between expansive exploration and focused integration."
+        common_misalignments:
+          - "Staying in the dreamspace when action would actually help"
+          - "Losing your grounding in the swirl of possibility"
+          - "Avoiding structure because it feels like restriction"
+          - "Floating through phases that need some intentional rooting"
+          - "Ignoring data or plans that could strengthen your magic"
+        shifts_needed:
+          - "Honor your flow, but don't fear the structure that could support it."
+          - "A little bit of grounding can help your creativity land."
+          - "Make space for alignment, but also make space for follow-through."
+        acceptance_permissions:
+          - "You're allowed to lead with your intuition and still be supported."
+          - "You're allowed to follow what lights you up without abandoning the real world."
+          - "You're allowed to hold freedom and form in the same breath."
+        energy_support_tools:
+          - "Planning systems that breathe, minimal but supportive"
+          - "Practices that keep you tethered while you expand"
+          - "Frameworks for intuitive choices that still lead to grounded outcomes"
+          - "Rituals tied to your natural energy peaks"
+          - "Soft manifestation and intuitive weekly check-ins"
+          - "Morning light exposure to help land in your day"
+          - "Grounding teas, intuitive sketching, vocal toning, and body-led meditations"
+          - "Vision maps and circular calendars that hold dreams without rushing them"
+          - "<a href='https://www.peathefeary.com/what-is-rich-terrain' target='_blank' class='text-amber-700 hover:underline'>Rich Terrain</a> to help you plant and prune in rhythm with your own seasons"
+    - id: visionary_builder
+      typology_name: Visionary Builder
+      headline: "You begin with intuitive vision and bring it into form through exceptional discipline. Your intuition guides what wants to emerge, while your remarkable structural abilities determine how to manifest it effectively. You excel at bridging inspiration and methodical implementation."
+      description:
+        essence: "bringing intuitive vision into highly structured form"
+        strength: "translating creative inspiration into robust practical systems"
+        challenge: "maintaining creative flow while implementing detailed structure"
+        approach: "You allow intuition to guide direction, then apply methodical processes to manifest the vision."
+        growth: "developing even greater harmony between your intuitive and highly structured aspects"
+      tips:
+        ideal_approaches:
+          strengths: "intuitive discipline, inspired planning, grounded magic"
+          approaches:
+            - "Let your inner knowing set the vision, then map the moves."
+            - "Create gentle structures that support your visionary nature."
+            - "Let energy speak first, then act from that clarity."
+            - "Use intuitive guidance to inform strategic planning."
+            - "Implement consistent practices that honor your need for creative freedom."
+        common_misalignments:
+          - "Building cages when you meant to build containers"
+          - "Talking yourself out of intuitive truths if they sound too \"out there\""
+          - "Prioritizing execution over alignment and burning out"
+          - "Rushing timelines instead of trusting divine pacing"
+          - "Downplaying your own vibrational work like it's not enough"
+        shifts_needed:
+          - "Let structure become a bridge, not a barricade."
+          - "Let your structured side serve the vision, not try to control it."
+          - "Use grounding rituals when your energy starts to float too far out."
+        acceptance_permissions:
+          - "You're allowed to trust your knowing first, logic can catch up later."
+          - "You're allowed to follow intuitive hits even when they don't make 'sense.'"
+          - "You're allowed to move without explaining every step."
+        energy_support_tools:
+          - "Let vision come first, then build the scaffolding to hold it"
+          - "Intuition check-ins that ground you without overriding your fire"
+          - "Action steps that flow from energy, not obligation"
+          - "Scripting and altar ceremonies to name your desires"
+          - "Subtle scaffolding with intuitive digital tools like Notion"
+          - "Solar plexus work through breath, walking, and core activation"
+          - "Batched creative rituals and chakra-based journaling"
+          - "<a href='https://www.peathefeary.com/shop/p/7eleczgn0uipxp2lwdhkeczqq6l2sb-r2wcr-wd9h5-yhryn' target='_blank' class='text-amber-700 hover:underline'>Decide to Trust (print</a> or mantra) as your compass, reminding that clarity often comes after the leap"
+    - id: intuitive_implementer
+      typology_name: Intuitive Implementer
+      headline: "You begin with feeling and shape it into form. Vision comes first, but you know how to follow through. Your intuition guides the what, and your structured self handles the how. You're the bridge between idea and action."
+      description:
+        essence: "intuitive creation supported by practical implementation"
+        strength: "receiving inspired guidance and bringing it into tangible form"
+        challenge: "maintaining the essence of inspiration during the structuring process"
+        approach: "You allow intuition to lead while developing supportive structures to manifest what emerges."
+        growth: "refining your ability to preserve inspired energy throughout implementation"
+      tips:
+        ideal_approaches:
+          strengths: "intuitive discipline, inspired planning, grounded magic"
+          approaches:
+            - "Let your inner knowing set the vision, then map the moves."
+            - "Create gentle structures that support your visionary nature."
+            - "Let energy speak first, then act from that clarity."
+            - "Use intuitive guidance to inform strategic planning."
+            - "Implement consistent practices that honor your need for creative freedom."
+        common_misalignments:
+          - "Building cages when you meant to build containers"
+          - "Talking yourself out of intuitive truths if they sound too \"out there\""
+          - "Prioritizing execution over alignment and burning out"
+          - "Rushing timelines instead of trusting divine pacing"
+          - "Downplaying your own vibrational work like it's not enough"
+        shifts_needed:
+          - "Let structure become a bridge, not a barricade."
+          - "Let your structured side serve the vision, not try to control it."
+          - "Use grounding rituals when your energy starts to float too far out."
+        acceptance_permissions:
+          - "You're allowed to trust your knowing first, logic can catch up later."
+          - "You're allowed to follow intuitive hits even when they don't make 'sense.'"
+          - "You're allowed to move without explaining every step."
+        energy_support_tools:
+          - "Let vision come first, then build the scaffolding to hold it"
+          - "Intuition check-ins that ground you without overriding your fire"
+          - "Action steps that flow from energy, not obligation"
+          - "Scripting and altar ceremonies to name your desires"
+          - "Subtle scaffolding with intuitive digital tools like Notion"
+          - "Solar plexus work through breath, walking, and core activation"
+          - "Batched creative rituals and chakra-based journaling"
+          - "<a href='https://www.peathefeary.com/shop/p/7eleczgn0uipxp2lwdhkeczqq6l2sb-r2wcr-wd9h5-yhryn' target='_blank' class='text-amber-700 hover:underline'>Decide to Trust (print</a> or mantra) as your compass, reminding that clarity often comes after the leap"
+    - id: visionary_harmonizer
+      typology_name: Visionary Harmonizer
+      headline: "You lead with intuition but always keep one foot in the world. You're tapped into possibility while still attuned to what's needed now. You dance between realms, receiving, refining, and translating energy into form."
+      description:
+        essence: "intuitive creation with adaptive implementation"
+        strength: "bringing inspired vision into reality through flexible approaches"
+        challenge: "creating enough structure without limiting intuitive guidance"
+        approach: "You follow intuitive direction while remaining responsive to what emerges during implementation."
+        growth: "developing greater trust in both your intuitive guidance and adaptive abilities"
+      tips:
+        ideal_approaches:
+          strengths: "vision-driven harmony, adaptable flow, creative balance"
+          approaches:
+            - "Stay wide open to inspiration while maintaining practical awareness."
+            - "Use minimal structures as soft landing pads for ideas."
+            - "Ground your wildness in presence, not pressure."
+            - "Notice when it's time for expansive vision and when it's time for focused execution."
+            - "Let intuitive bursts be followed by integration, instead of cyclical thinking."
+        common_misalignments:
+          - "Resisting even the gentle structure that could support you"
+          - "Scattering your focus when it wants to be held"
+          - "Ignoring insights that could bring your vision into reality"
+          - "Walking away from ideas just when they're ready to root"
+          - "Mistaking flexibility for directionlessness"
+        shifts_needed:
+          - "Keep leading with your intuition, but let the practical side catch up."
+          - "Create space for the vision to flow, then anchor it."
+          - "Let your balanced nature turn inspiration into something you can touch."
+        acceptance_permissions:
+          - "You're allowed to let inspiration lead and structure follow."
+          - "You're allowed to hold your big vision and still build it piece by piece."
+          - "You're allowed to switch gears, dream, plan, dream again."
+        energy_support_tools:
+          - "Anchor points for big ideas to start taking form"
+          - "Loose but reliable manifestation rituals"
+          - "Practices that translate intuitive hits into doable steps"
+          - "Rituals tied to your natural energy peaks"
+          - "Soft manifestation and intuitive weekly check-ins"
+          - "Morning light exposure to help land in your day"
+          - "Grounding teas, intuitive sketching, vocal toning, and body-led meditations"
+          - "Vision maps and circular calendars that hold dreams without rushing them"
+          - "<a href='https://www.peathefeary.com/classesandaudios/p/timelinejumping' target='_blank' class='text-amber-700 hover:underline'>The Timeline Jumping Embodiment Guide</a> for playful portals into alignment"
+    - id: quantum_manifestor
+      typology_name: Quantum Manifestor
+      headline: "You create from the unseen. You don't manifest through steps, you manifest through state. You trust timing, you trust energy, and you trust yourself. Your reality bends in response to your being."
+      description:
+        essence: "intuitive creation through energetic alignment"
+        strength: "manifesting through resonance rather than linear action"
+        challenge: "bringing inspired visions into tangible form without restricting their essence"
+        approach: "You align your energy with desired outcomes, allowing reality to reshape around your frequency."
+        growth: "developing greater capacity to maintain your state while engaging with practical reality"
+      tips:
+        ideal_approaches:
+          strengths: "energetic alignment, nonlinear magic, deep trust in the unseen"
+          approaches:
+            - "Make alignment your method. Vibe first, results second."
+            - "Visualize from feeling, not from steps."
+            - "Create from the pulse of inspiration, not the plan."
+            - "Let synchronicity lead, you don't have to force it."
+            - "Bring in structure only as a channel, never as a cage."
+        common_misalignments:
+          - "Staying in the ethers without grounding your vision into form"
+          - "Letting ideas swirl endlessly without choosing one to land"
+          - "Avoiding tangible action that could magnetize what you want"
+          - "Starting and stopping when consistency wants to emerge"
+          - "Letting clarity remain optional when it's trying to knock on your door"
+        shifts_needed:
+          - "Give your energy a place to land, a little structure goes a long way."
+          - "Set aside time to anchor your dreams into form."
+          - "Remember: consistency doesn't kill your magic, it channels it."
+        acceptance_permissions:
+          - "You're allowed to trust your way, even if it looks nothing like theirs."
+          - "You're allowed to create how you create, it doesn't have to be conventional."
+          - "You're allowed to follow energy instead of plans."
+        energy_support_tools:
+          - "Alignment practices that bring your energy into coherence"
+          - "Gentle grounding tools, just enough to help you land without pinning you down"
+          - "Navigation practices that help you follow the thread without losing momentum"
+          - "Energy attunement meditations, fascia release, and ceremonial baths"
+          - "Dream, moon, and mood tracking"
+          - "Sound healing through voice, tuning forks, and chimes"
+          - "Intuitive journaling and breathwork for decision-making"
+          - "Intuitive time-blocking for momentum without pressure"
+          - "<a href='https://www.peathefeary.com/spirit-math-store' target='_blank' class='text-amber-700 hover:underline'>Spirit Math</a> as Oracle for riddles, revelations, and resonance without requiring linearity"
+    - id: ethereal_creator
+      typology_name: Ethereal Creator
+      headline: "You create almost entirely through energy, resonance, and state. Linear processes feel foreign to your deeply intuitive nature. You manifest by becoming the frequency of what you desire, trusting the universe to rearrange itself accordingly."
+      description:
+        essence: "creation through pure energetic alignment"
+        strength: "accessing deeply intuitive knowledge and manifesting through resonance"
+        challenge: "translating ethereal awareness into forms others can recognize"
+        approach: "You tune into subtle energetic currents and allow reality to reshape itself around your aligned state."
+        growth: "developing ways to bridge your profound intuitive process with shared reality"
+      tips:
+        ideal_approaches:
+          strengths: "energetic alignment, nonlinear magic, deep trust in the unseen"
+          approaches:
+            - "Make alignment your method. Vibe first, results second."
+            - "Visualize from feeling, not from steps."
+            - "Create from the pulse of inspiration, not the plan."
+            - "Let synchronicity lead, you don't have to force it."
+            - "Bring in structure only as a channel, never as a cage."
+        common_misalignments:
+          - "Staying in the ethers without grounding your vision into form"
+          - "Letting ideas swirl endlessly without choosing one to land"
+          - "Avoiding tangible action that could magnetize what you want"
+          - "Starting and stopping when consistency wants to emerge"
+          - "Letting clarity remain optional when it's trying to knock on your door"
+        shifts_needed:
+          - "Give your energy a place to land, a little structure goes a long way."
+          - "Set aside time to anchor your dreams into form."
+          - "Remember: consistency doesn't kill your magic, it channels it."
+        acceptance_permissions:
+          - "You're allowed to trust your way, even if it looks nothing like theirs."
+          - "You're allowed to create how you create, it doesn't have to be conventional."
+          - "You're allowed to follow energy instead of plans."
+        energy_support_tools:
+          - "Alignment practices that bring your energy into coherence"
+          - "Gentle grounding tools, just enough to help you land without pinning you down"
+          - "Navigation practices that help you follow the thread without losing momentum"
+          - "Energy attunement meditations, fascia release, and ceremonial baths"
+          - "Dream, moon, and mood tracking"
+          - "Sound healing through voice, tuning forks, and chimes"
+          - "Intuitive journaling and breathwork for decision-making"
+          - "Intuitive time-blocking for momentum without pressure"
+          - "<a href='https://www.peathefeary.com/spirit-math-store' target='_blank' class='text-amber-700 hover:underline'>Spirit Math</a> as Oracle for riddles, revelations, and resonance without requiring linearity"
+    - id: pure_intuitive
+      typology_name: Pure Intuitive
+      headline: "You create almost exclusively through energy, frequency, and direct knowing. Conventional manifestation approaches feel unnecessarily complex to your deeply intuitive nature. You access reality at the quantum level, where intention and manifestation are essentially one movement."
+      description:
+        essence: "creation through profound intuitive knowing"
+        strength: "directly accessing the field where intention and manifestation merge"
+        challenge: "interacting with conventional reality without diminishing your connection to source"
+        approach: "You manifest primarily through being rather than doing, allowing reality to respond to your frequency."
+        growth: "developing bridges between your quantum awareness and the shared physical world"
+      tips:
+        ideal_approaches:
+          strengths: "energetic alignment, nonlinear magic, deep trust in the unseen"
+          approaches:
+            - "Make alignment your method. Vibe first, results second."
+            - "Visualize from feeling, not from steps."
+            - "Create from the pulse of inspiration, not the plan."
+            - "Let synchronicity lead, you don't have to force it."
+            - "Bring in structure only as a channel, never as a cage."
+        common_misalignments:
+          - "Staying in the ethers without grounding your vision into form"
+          - "Letting ideas swirl endlessly without choosing one to land"
+          - "Avoiding tangible action that could magnetize what you want"
+          - "Starting and stopping when consistency wants to emerge"
+          - "Letting clarity remain optional when it's trying to knock on your door"
+        shifts_needed:
+          - "Give your energy a place to land, a little structure goes a long way."
+          - "Set aside time to anchor your dreams into form."
+          - "Remember: consistency doesn't kill your magic, it channels it."
+        acceptance_permissions:
+          - "You're allowed to trust your way, even if it looks nothing like theirs."
+          - "You're allowed to create how you create, it doesn't have to be conventional."
+          - "You're allowed to follow energy instead of plans."
+        energy_support_tools:
+          - "Alignment practices that bring your energy into coherence"
+          - "Gentle grounding tools, just enough to help you land without pinning you down"
+          - "Navigation practices that help you follow the thread without losing momentum"
+          - "Energy attunement meditations, fascia release, and ceremonial baths"
+          - "Dream, moon, and mood tracking"
+          - "Sound healing through voice, tuning forks, and chimes"
+          - "Intuitive journaling and breathwork for decision-making"
+          - "Intuitive time-blocking for momentum without pressure"
+          - "<a href='https://www.peathefeary.com/spirit-math-store' target='_blank' class='text-amber-700 hover:underline'>Spirit Math</a> as Oracle for riddles, revelations, and resonance without requiring linearity"
+    - id: quantum_guide
+      typology_name: Quantum Guide
+      headline: "You access reality at remarkably subtle levels, where intention and manifestation are nearly simultaneous. Your highly developed intuitive abilities allow you to perceive possibilities beyond conventional awareness, bringing through insights that reshape understanding."
+      description:
+        essence: "creation through profound intuitive connection"
+        strength: "accessing subtle dimensions of reality beyond conventional perception"
+        challenge: "translating multidimensional awareness into linear communication"
+        approach: "You align with the essence of what you wish to create, allowing it to emerge through energetic resonance."
+        growth: "developing ways to bridge your intuitive knowing with practical implementation"
+      tips:
+        ideal_approaches:
+          strengths: "energetic alignment, nonlinear magic, deep trust in the unseen"
+          approaches:
+            - "Make alignment your method. Vibe first, results second."
+            - "Visualize from feeling, not from steps."
+            - "Create from the pulse of inspiration, not the plan."
+            - "Let synchronicity lead, you don't have to force it."
+            - "Bring in structure only as a channel, never as a cage."
+        common_misalignments:
+          - "Staying in the ethers without grounding your vision into form"
+          - "Letting ideas swirl endlessly without choosing one to land"
+          - "Avoiding tangible action that could magnetize what you want"
+          - "Starting and stopping when consistency wants to emerge"
+          - "Letting clarity remain optional when it's trying to knock on your door"
+        shifts_needed:
+          - "Give your energy a place to land, a little structure goes a long way."
+          - "Set aside time to anchor your dreams into form."
+          - "Remember: consistency doesn't kill your magic, it channels it."
+        acceptance_permissions:
+          - "You're allowed to trust your way, even if it looks nothing like theirs."
+          - "You're allowed to create how you create, it doesn't have to be conventional."
+          - "You're allowed to follow energy instead of plans."
+        energy_support_tools:
+          - "Alignment practices that bring your energy into coherence"
+          - "Gentle grounding tools, just enough to help you land without pinning you down"
+          - "Navigation practices that help you follow the thread without losing momentum"
+          - "Energy attunement meditations, fascia release, and ceremonial baths"
+          - "Dream, moon, and mood tracking"
+          - "Sound healing through voice, tuning forks, and chimes"
+          - "Intuitive journaling and breathwork for decision-making"
+          - "Intuitive time-blocking for momentum without pressure"
+          - "<a href='https://www.peathefeary.com/spirit-math-store' target='_blank' class='text-amber-700 hover:underline'>Spirit Math</a> as Oracle for riddles, revelations, and resonance without requiring linearity"
+    - id: visionary_translator
+      typology_name: Visionary Translator
+      headline: "You access profound intuitive wisdom while maintaining enough center to translate it effectively. Your exceptional intuitive abilities perceive beyond conventional reality, while your balanced nature helps bridge these insights to practical application."
+      description:
+        essence: "bridging profound intuition with practical integration"
+        strength: "translating multidimensional awareness into implementable guidance"
+        challenge: "preserving the depth of intuitive knowledge during the translation process"
+        approach: "You receive intuitive information at deep levels, then work to express it in accessible ways."
+        growth: "refining your ability to maintain intuitive connection while engaging with conventional reality"
+      tips:
+        ideal_approaches:
+          strengths: "vision-driven harmony, adaptable flow, creative balance"
+          approaches:
+            - "Stay wide open to inspiration while maintaining practical awareness."
+            - "Use minimal structures as soft landing pads for ideas."
+            - "Ground your wildness in presence, not pressure."
+            - "Notice when it's time for expansive vision and when it's time for focused execution."
+            - "Let intuitive bursts be followed by integration, instead of cyclical thinking."
+        common_misalignments:
+          - "Resisting even the gentle structure that could support you"
+          - "Scattering your focus when it wants to be held"
+          - "Ignoring insights that could bring your vision into reality"
+          - "Walking away from ideas just when they're ready to root"
+          - "Mistaking flexibility for directionlessness"
+        shifts_needed:
+          - "Keep leading with your intuition, but let the practical side catch up."
+          - "Create space for the vision to flow, then anchor it."
+          - "Let your balanced nature turn inspiration into something you can touch."
+        acceptance_permissions:
+          - "You're allowed to let inspiration lead and structure follow."
+          - "You're allowed to hold your big vision and still build it piece by piece."
+          - "You're allowed to switch gears, dream, plan, dream again."
+        energy_support_tools:
+          - "Anchor points for big ideas to start taking form"
+          - "Loose but reliable manifestation rituals"
+          - "Practices that translate intuitive hits into doable steps"
+          - "Rituals tied to your natural energy peaks"
+          - "Soft manifestation and intuitive weekly check-ins"
+          - "Morning light exposure to help land in your day"
+          - "Grounding teas, intuitive sketching, vocal toning, and body-led meditations"
+          - "Vision maps and circular calendars that hold dreams without rushing them"
+          - "<a href='https://www.peathefeary.com/classesandaudios/p/timelinejumping' target='_blank' class='text-amber-700 hover:underline'>The Timeline Jumping Embodiment Guide</a> for playful portals into alignment"
+    - id: dimensional_bridge
+      typology_name: Dimensional Bridge
+      headline: "You embody a remarkable synthesis of seemingly opposite approaches. Your exceptional structure provides tangible form for profound intuitive vision. You excel at creating robust systems that channel ethereal energy, bringing the invisible into powerful manifestation."
+      description:
+        essence: "bridging profound structure and deep intuition"
+        strength: "creating powerful frameworks that channel intuitive wisdom"
+        challenge: "maintaining the integrity of both structure and intuition simultaneously"
+        approach: "You receive deep intuitive guidance, then apply exceptional organizational skills to bring it into form."
+        growth: "refining your unique ability to honor both highly structured and deeply intuitive aspects"
+      tips:
+        ideal_approaches:
+          strengths: "intuitive discipline, inspired planning, grounded magic"
+          approaches:
+            - "Let your inner knowing set the vision, then map the moves."
+            - "Create gentle structures that support your visionary nature."
+            - "Let energy speak first, then act from that clarity."
+            - "Use intuitive guidance to inform strategic planning."
+            - "Implement consistent practices that honor your need for creative freedom."
+        common_misalignments:
+          - "Building cages when you meant to build containers"
+          - "Talking yourself out of intuitive truths if they sound too \"out there\""
+          - "Prioritizing execution over alignment and burning out"
+          - "Rushing time"
+        shifts_needed:
+          - Let structure support your vision instead of overriding it.
+          - Slow down enough for your next inspired action to become clear.
+          - Trust the planning process as a form of energetic alignment.
+          - Allow discipline to be an act of devotion, not suppression.
+          - Recognize that structure can be spacious and sacred.
+        acceptance_permissions:
+          - You're allowed to blend mystical insight with practical follow-through.
+          - You're allowed to pause execution when your energy calls for reconnection.
+          - You're allowed to create systems that honor your frequency, not override it.
+          - You're allowed to work with plans that flex with your flow.
+          - You're allowed to trust a timeline that feels resonant, not rushed.
+        energy_support_tools:
+          - Vision boards that evolve over time, not all at once
+          - Systems that start soft—like intuitive task grouping and flexible schedules
+          - Practices that integrate right-brain downloads with left-brain planning
+          - "Embodied planning rituals: write from intuition, then organize"
+          - Breath-led strategy sessions with journaling and gentle movement
+          - Rituals that mark phases—start, sustain, complete—with frequency anchoring
+          - Mind-mapping, archetypal spreads, or intuitive containers for idea capture
+

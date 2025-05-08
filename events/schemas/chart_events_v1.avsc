@@ -1,0 +1,22 @@
+{
+  "type": "record",
+  "name": "ChartEvent",
+  "namespace": "com.realitycreation.chart.events",
+  "fields": [
+    {
+      "name": "event_type",
+      "type": {
+        "type": "enum",
+        "name": "ChartEvt",
+        "symbols": ["CALCULATED", "FAILED"]
+      }
+    },
+    {"name": "chart_id", "type": "string"},
+    {"name": "profile_id", "type": "string"},
+    {
+      "name": "timestamp",
+      "type": {"type": "long", "logicalType": "timestamp-millis"}
+    },
+    {"name": "payload", "type": ["null", "string"], "default": null}
+  ]
+}

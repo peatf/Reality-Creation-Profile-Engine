@@ -1,0 +1,12 @@
+{
+  "type": "record",
+  "name": "TypologyAssessed",
+  "namespace": "com.yourorg.assessment",
+  "fields": [
+    { "name": "user_id",         "type": "string" },
+    { "name": "typology_name",   "type": "string" },
+    { "name": "confidence",      "type": "float"  },
+    { "name": "timestamp",       "type": "string", "logicalType": "timestamp-millis" },
+    { "name": "spec_version",    "type": "string" }
+  ]
+}

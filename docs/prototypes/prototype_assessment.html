@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Reality Profile Engine Tester</title>
+  <style>
+    body { font-family: sans-serif; line-height: 1.6; padding: 1em; }
+    fieldset { border: 1px solid #ccc; padding: 1em; margin-bottom: 1em; }
+    legend { font-weight: bold; }
+    label { display: block; margin-top: 1em; }
+    input[type=text], input[type=number], input[type=time], textarea { width: 95%; max-width: 400px; margin-bottom: 0.5em; padding: 0.3em; }
+    button { margin-top: 1.5em; padding: 0.7em 1.2em; cursor: pointer; }
+    button:disabled { cursor: not-allowed; opacity: 0.6; }
+    pre { white-space: pre-wrap; background: #f5f5f5; padding: 1em; border: 1px solid #ccc; margin-top: 1em; font-size: 0.9em; }
+    #profile-id-section { margin-top: 1.5em; padding: 1em; background-color: #eef; border: 1px solid #dde; }
+    #profile-id-display { font-weight: bold; font-family: monospace; }
+  </style>
+</head>
+<body>
+  <h1>Reality Creation Profile Engine</h1>
+
+  <form id="profile-form">
+    <fieldset>
+      <legend>Birth Data</legend>
+      <label for="birthdate">Birth Date (YYYY-MM-DD):</label>
+      <input type="text" id="birthdate" name="birthdate" value="1990-01-01" required>
+
+      <label for="birthtime">Birth Time (HH:MM:SS):</label>
+      <input type="time" id="birthtime" name="birthtime" value="12:00:00" step="1" required>
+
+      <label for="city_of_birth">City of Birth:</label>
+      <input type="text" id="city_of_birth" name="city_of_birth" value="Los Angeles" required>
+
+      <label for="country_of_birth">Country of Birth:</label>
+      <input type="text" id="country_of_birth" name="country_of_birth" value="USA" required>
+    </fieldset>
+
+    <fieldset>
+      <legend>Assessment Responses</legend>
+      <label for="responses">Responses (JSON):</label>
+      <textarea id="responses" name="responses" rows="15" cols="60">{
+  "typology": {
+    "cognitive-alignment": "balanced",
+    "perceptual-focus": "right",
+    "kinetic-drive": "left",
+    "choice-navigation": "balanced",
+    "resonance-field": "right",
+    "manifestation-rhythm": "left"
+  },
+  "mastery": {
+    "core-q1": "creative-expression",
+    "core-q2": "craft-mastery",
+    "core-q3": "confidence-trust",
+    "growth-q1": "action-challenge",
+    "growth-q2": "decision-doubt",
+    "growth-q3": "self-trust-resistance",
+    "alignment-q1": "accept-intuition",
+    "alignment-q2": "control-outcomes",
+    "energy-q1": "emotional-inspiration",
+    "energy-q2": "ignored-cycles",
+    "energy-q3": "balanced-productivity",
+    "energy-q4": "inspiring-environment"
+  }
+}</textarea>
+    </fieldset>
+
+    <button type="submit" id="create-button">Generate Profile</button>
+  </form>
+
+  <div id="profile-id-section" style="display: none;">
+    Profile Created! ID: <span id="profile-id-display"></span><br>
+    <button id="fetch-button" disabled>Fetch Full Profile</button>
+  </div>
+
+  <h2>Response / Results:</h2>
+  <pre id="output"></pre>
+
+  <script>
+    const form = document.getElementById('profile-form');
+    const createButton = document.getElementById('create-button');
+    const fetchButton = document.getElementById('fetch-button');
+    const outputArea = document.getElementById('output');
+    const profileIdSection = document.getElementById('profile-id-section');
+    const profileIdDisplay = document.getElementById('profile-id-display');
+
+    let currentProfileId = null;
+    // Assuming your API runs on port 8000 based on typical FastAPI/Docker setups
+    const API_BASE_URL = 'http://localhost:8000'; // Adjust if your API runs on a different port
+
+    form.addEventListener('submit', async (event) => {
+      event.preventDefault(); // Prevent default form submission/reload
+      outputArea.textContent = 'Generating profile...';
+      createButton.disabled = true;
+      fetchButton.disabled = true;
+      profileIdSection.style.display = 'none';
+      currentProfileId = null;
+
+      const birthData = {
+        birth_date: document.getElementById('birthdate').value,
+        birth_time: document.getElementById('birthtime').value,
+        // latitude, longitude, timezone removed
+        city_of_birth: document.getElementById('city_of_birth').value, // Use new ID and key
+        country_of_birth: document.getElementById('country_of_birth').value // Use new ID and key
+      };
+
+      let assessmentResponses;
+      try {
+        assessmentResponses = JSON.parse(document.getElementById('responses').value);
+      } catch (error) {
+        outputArea.textContent = `Error parsing Assessment JSON: ${error.message}`;
+        createButton.disabled = false;
+        return;
+      }
+
+      const payload = {
+        birth_data: birthData,
+        assessment_responses: assessmentResponses
+      };
+
+      try {
+        const response = await fetch(`${API_BASE_URL}/profile/create`, { // Corrected endpoint path
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+          },
+          body: JSON.stringify(payload)
+        });
+
+        const result = await response.json();
+
+        if (!response.ok) {
+          // Display detailed error from API if available
+          const errorDetail = result.detail ? JSON.stringify(result.detail, null, 2) : `HTTP error! status: ${response.status}`;
+          throw new Error(`API Error: ${errorDetail}`);
+        }
+
+        currentProfileId = result.profile_id;
+        outputArea.textContent = `Profile creation initiated. Profile ID: ${currentProfileId}`;
+        profileIdDisplay.textContent = currentProfileId;
+        profileIdSection.style.display = 'block';
+        fetchButton.disabled = false;
+
+      } catch (error) {
+        console.error('Error creating profile:', error);
+        outputArea.textContent = `Error creating profile: ${error.message}`;
+      } finally {
+        createButton.disabled = false; // Re-enable button even on error
+      }
+    });
+
+    fetchButton.addEventListener('click', async () => {
+      if (!currentProfileId) {
+        outputArea.textContent = 'No profile ID available to fetch.';
+        return;
+      }
+
+      outputArea.textContent = `Fetching profile ${currentProfileId}...`;
+      fetchButton.disabled = true;
+
+      try {
+        const response = await fetch(`${API_BASE_URL}/profile/${currentProfileId}`, { // Corrected endpoint path
+            method: 'GET',
+            headers: {
+                'Accept': 'application/json'
+            }
+        });
+        const result = await response.json();
+
+        if (!response.ok) {
+            // Display detailed error from API if available
+            const errorDetail = result.detail ? JSON.stringify(result.detail, null, 2) : `HTTP error! status: ${response.status}`;
+            throw new Error(`API Error: ${errorDetail}`);
+        }
+
+        // Pretty-print the JSON output
+        outputArea.textContent = JSON.stringify(result, null, 2);
+
+      } catch (error) {
+        console.error('Error fetching profile:', error);
+        outputArea.textContent = `Error fetching profile: ${error.message}`;
+      } finally {
+         // Keep fetch button disabled after fetching, or re-enable if you want to allow refetching
+         // fetchButton.disabled = false;
+      }
+    });
+
+  </script>
+</body>
+</html>

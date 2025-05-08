@@ -1,0 +1,22 @@
+{
+  "type": "record",
+  "name": "ProfileEvent",
+  "namespace": "com.realitycreation.profile.events",
+  "fields": [
+    {
+      "name": "event_type",
+      "type": {
+        "type": "enum",
+        "name": "ProfileEvt",
+        "symbols": ["CREATED", "UPDATED"]
+      }
+    },
+    {"name": "profile_id", "type": "string"},
+    {"name": "user_id", "type": "string"},
+    {
+      "name": "timestamp",
+      "type": {"type": "long", "logicalType": "timestamp-millis"}
+    },
+    {"name": "payload", "type": "string"}
+  ]
+}

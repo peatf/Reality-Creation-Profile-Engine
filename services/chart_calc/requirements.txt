@@ -1,0 +1,13 @@
+fastapi
+uvicorn[standard]
+skyfield
+# jupyter-skyfield-data or jpl-de421 - Skyfield will download what it needs.
+# For explicit ephemeris file, one would typically download it and point Skyfield to it.
+# We'll let Skyfield handle it for now, or specify a common one like de422.bsp or de440.bsp if needed later.
+redis
+aiokafka
+pydantic
+pytest
+pytest-asyncio
+httpx
+pytest-mock

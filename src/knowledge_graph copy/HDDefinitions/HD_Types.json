@@ -1,0 +1,182 @@
+[
+  {
+    "term_name": "Manifestor",
+    "definition": "Manifestors are the initiators of the Human Design system, here to impact and catalyze action in others.",
+    "role_in_manifestation": "By following your inner urges and informing those who\u2019ll be affected, you set powerful new beginnings into motion with minimal resistance.",
+    "weighted_importance": "critical",
+    "cross_references": [
+      "Heart Center",
+      "Throat Center",
+      "Defined Throat"
+    ],
+    "details": null
+  },
+  {
+    "term_name": "Generator",
+    "definition": "Generators are the life-force of the planet, endowed with sustainable sacral energy when engaged in satisfying work.",
+    "role_in_manifestation": "Waiting to respond to the right cues lets your sacral life-force align you with activities that bring deep satisfaction and mastery.",
+    "weighted_importance": "critical",
+    "cross_references": [
+      "Sacral Center",
+      "Defined Sacral"
+    ],
+    "details": null
+  },
+  {
+    "term_name": "Manifesting Generator",
+    "definition": "Manifesting Generators combine the initiating power of Manifestors with Generator energy, gifted at multitasking and rapid iteration.",
+    "role_in_manifestation": "Use your sacral response to guide your choices, then inform before you act so your bursts of energy land smoothly.",
+    "weighted_importance": "critical",
+    "cross_references": [
+      "Sacral Center",
+      "Defined Sacral",
+      "Throat Center"
+    ],
+    "details": null
+  },
+  {
+    "term_name": "Projector",
+    "definition": "Projectors are natural guides who recognize and direct the energy of others, bringing efficiency and insight.",
+    "role_in_manifestation": "Waiting for an invitation honors your unique perspective and ensures your guidance is welcomed and effective.",
+    "weighted_importance": "critical",
+    "cross_references": [
+      "G Center",
+      "Defined G"
+    ],
+    "details": null
+  },
+  {
+    "term_name": "Reflector",
+    "definition": "Reflectors are the barometers of their community, sampling and reflecting the health of the collective environment.",
+    "role_in_manifestation": "By waiting a full lunar cycle before making major decisions, you ensure you\u2019ve seen the full picture and act in harmony with your environment.",
+    "weighted_importance": "critical",
+    "cross_references": [
+      "Lunar Authority",
+      "Undefined Centers"
+    ],
+    "details": null
+  },
+  {
+    "term_name": "Informing",
+    "definition": "Manifestors initiate change through clear communication rather than force, when you inform others of your intent, you harmonize your personal vibration with the collective field.",
+    "role_in_manifestation": "By aligning your actions with the natural flow of information, you minimize resistance and invite cooperative energy, ensuring your initiatives propagate effortlessly.",
+    "weighted_importance": "critical",
+    "cross_references": [
+      "Throat Center",
+      "Manifestor"
+    ],
+    "details": null
+  },
+  {
+    "term_name": "Responding",
+    "definition": "Generators and Manifesting Generators harness their sacral resonance by waiting to respond to external cues, this tuning approach sidesteps effortful pushing and aligns you with naturally unfolding opportunities.",
+    "role_in_manifestation": "Your inner sacral 'yes' is a vibrational signal that the universe mirrors; acting only on that resonance amplifies flow and compounds momentum without strain.",
+    "weighted_importance": "critical",
+    "cross_references": [
+      "Sacral Center",
+      "Generator",
+      "Manifesting Generator"
+    ],
+    "details": null
+  },
+  {
+    "term_name": "Waiting for the Invitation",
+    "definition": "Projectors thrive by tuning into the frequencies of recognition, when you wait for a genuine invitation, you align your guiding energy with receptive vessels rather than forcing insight.",
+    "role_in_manifestation": "Recognition-based invitations resonate with your unique guide frequency, allowing you to share your wisdom in harmony with others\u2019 openness, unlocking mutual flow.",
+    "weighted_importance": "critical",
+    "cross_references": [
+      "G Center",
+      "Projector"
+    ],
+    "details": null
+  },
+  {
+    "term_name": "Waiting a Lunar Cycle",
+    "definition": "Reflectors calibrate to the community field by observing a full lunar cycle, this nonlinear approach mirrors the natural unfolding of reality and honors the vibrational pulse of time.",
+    "role_in_manifestation": "By allowing a complete cycle of resonance to pass before deciding, you ensure decisions emerge from full-spectrum alignment rather than momentary distortion.",
+    "weighted_importance": "critical",
+    "cross_references": [
+      "Lunar Authority",
+      "Reflector"
+    ],
+    "details": null
+  },
+  {
+    "term_name": "Emotional Authority",
+    "definition": "Your emotional wave is a dynamic frequency; waiting for clarity in your emotional rhythm aligns decisions with authentic resonance rather than impulse.",
+    "role_in_manifestation": "Embrace emotional alignment: only act when your wave settles into a calm \u2018yes,\u2019 ensuring your focus amplifies a steady frequency that the universe unmistakably echoes.",
+    "weighted_importance": "critical",
+    "cross_references": [
+      "Solar Plexus Center"
+    ],
+    "details": null
+  },
+  {
+    "term_name": "Sacral Authority",
+    "definition": "Your sacral response emits a clear \u2018uh-huh\u2019 or \u2018uh-uh\u2019 vibration; honoring that instant gut clarity tunes you to what genuinely fuels your energy.",
+    "role_in_manifestation": "Surrender to your sacral alignment by acting only on its affirmative hum, allowing opportunities attuned to your frequency to cascade in without effort.",
+    "weighted_importance": "critical",
+    "cross_references": [
+      "Sacral Center"
+    ],
+    "details": null
+  },
+  {
+    "term_name": "Splenic Authority",
+    "definition": "Your spleen is a moment-by-moment resonance detector; its quiet, instinctual whispers guide you toward what sustains wellness and flow in real time.",
+    "role_in_manifestation": "Trust instantaneous splenic signals as the field\u2019s most direct invitation, when you heed your intuition, you avoid dissonance and navigate seamlessly.",
+    "weighted_importance": "critical",
+    "cross_references": [
+      "Spleen Center"
+    ],
+    "details": null
+  },
+  {
+    "term_name": "Ego Authority",
+    "definition": "Your heart center\u2019s willpower emits a determined vibration; when you act from true desire, you shape reality through focused energetic intent rather than forceful striving.",
+    "role_in_manifestation": "Align your actions with genuine wants, your self-will resonance magnetizes the right resources, demonstrating the power of frequency over friction.",
+    "weighted_importance": "critical",
+    "cross_references": [
+      "Heart Center"
+    ],
+    "details": null
+  },
+  {
+    "term_name": "Self-Projected Authority",
+    "definition": "Your voice reflects your deepest self, speaking your truth tunes you to your identity frequency, guiding decisions through verbal clarity and inner harmony.",
+    "role_in_manifestation": "Use your vocal resonance to clarify direction: verbalizing what feels right amplifies your signature frequency and catalyzes aligned outcomes.",
+    "weighted_importance": "critical",
+    "cross_references": [
+      "Throat Center",
+      "G Center"
+    ],
+    "details": null
+  },
+  {
+    "term_name": "Lunar Authority",
+    "definition": "Your decisions mirror the lunar cycle\u2019s nonlinear pulse, waiting through the nodes\u2019 rhythm aligns your choices with larger cosmic flow rather than momentary distortions.",
+    "role_in_manifestation": "By synchronizing with lunar resonance, you tap into the field\u2019s expansive unfolding, ensuring your reality evolves in harmony with the collective tide.",
+    "weighted_importance": "critical",
+    "cross_references": [
+      "Lunar Node"
+    ],
+    "details": null
+  },
+  {
+    "term_name": "Authority",
+    "definition": "Inner intelligence guiding correct decision-making in Human Design, bypassing mental conditioning.",
+    "role_in_manifestation": "Aligns choices with core energetic design, reduces resistance, and ensures flow.",
+    "weighted_importance": "critical",
+    "cross_references": [
+      "Emotional Authority",
+      "Sacral Authority",
+      "Splenic Authority",
+      "Ego Authority",
+      "Self-Projected Authority",
+      "Environmental Authority",
+      "Lunar Authority"
+    ],
+    "source_references": [],
+    "details": null
+  }
+]

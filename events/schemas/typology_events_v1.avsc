@@ -1,0 +1,22 @@
+{
+  "type": "record",
+  "name": "TypologyEvent",
+  "namespace": "com.realitycreation.typology.events",
+  "fields": [
+    {
+      "name": "event_type",
+      "type": {
+        "type": "enum",
+        "name": "TypologyEvt",
+        "symbols": ["GENERATED", "UPDATED", "FAILED"]
+      }
+    },
+    {"name": "typology_id", "type": "string"},
+    {"name": "profile_id", "type": "string"},
+    {
+      "name": "timestamp",
+      "type": {"type": "long", "logicalType": "timestamp-millis"}
+    },
+    {"name": "payload", "type": ["null", "string"], "default": null}
+  ]
+}

@@ -1,0 +1,69 @@
+name: Regression Tests
+
+on:
+  push:
+    branches:
+      - main # Or your primary branch, e.g., master
+  pull_request:
+    branches:
+      - main # Or your primary branch
+
+jobs:
+  # Placeholder for unit tests - in a real workflow, this would run your actual unit tests
+  unit-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.9' # Specify your project's Python version
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+          pip install pytest # Ensure pytest is installed if not in requirements
+      - name: Run Unit Tests (Placeholder)
+        run: |
+          echo "Simulating unit tests..."
+          # Replace with your actual unit test command, e.g.:
+          # pytest tests/unit
+          echo "Unit tests passed (simulated)"
+
+  regression:
+    runs-on: ubuntu-latest
+    needs: unit-tests # Ensures regression runs after unit tests
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.9' # Or your project's Python version
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          if [ -f requirements.txt ]; then 
+            pip install -r requirements.txt
+          else
+            echo "requirements.txt not found. Please ensure it exists and lists PyYAML, pandas, numpy."
+            # As a fallback for this specific task, install known dependencies if requirements.txt is missing
+            pip install PyYAML pandas numpy pytest 
+          fi
+          # Ensure pytest is installed if not in requirements.txt, for the test_regression.py
+          pip install pytest 
+
+      - name: Run Typology Engine Regression Script
+        run: |
+          python -m services.typology_engine.regression \
+            --spec assets/typology_questions.yml \
+            --responses tests/typology/test_dataset.json
+        # The script will exit with a non-zero status code on failure, failing the step.
+
+      - name: Run Pytest Regression Tests
+        run: |
+          python -m pytest tests/typology/test_regression.py
+        # Pytest will exit with a non-zero status code if any tests fail.

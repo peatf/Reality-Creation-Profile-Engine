@@ -1,0 +1,26 @@
+{
+  "type": "record",
+  "name": "LogEvent",
+  "namespace": "com.realitycreation.log.events",
+  "fields": [
+    {
+      "name": "event_type",
+      "type": {
+        "type": "enum",
+        "name": "LogEvt",
+        "symbols": ["INFO", "WARN", "ERROR", "DEBUG"]
+      }
+    },
+    {"name": "service_name", "type": "string"},
+    {
+      "name": "timestamp",
+      "type": {"type": "long", "logicalType": "timestamp-millis"}
+    },
+    {"name": "message", "type": "string"},
+    {
+      "name": "context",
+      "type": ["null", {"type": "map", "values": "string"}],
+      "default": null
+    }
+  ]
+}

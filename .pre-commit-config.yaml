@@ -1,0 +1,35 @@
+# See https://pre-commit.com for more information
+# See https://pre-commit.com/hooks.html for more hooks
+repos:
+-   repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.6.0
+    hooks:
+    -   id: check-yaml
+    -   id: end-of-file-fixer
+    -   id: trailing-whitespace
+-   repo: https://github.com/psf/black
+    rev: 24.4.2 # Use a specific version
+    hooks:
+    -   id: black
+        language_version: python3 # Specify your python version if needed
+-   repo: https://github.com/pycqa/isort
+    rev: 5.13.2 # Use a specific version
+    hooks:
+      - id: isort
+        name: isort (python)
+-   repo: https://github.com/pycqa/flake8
+    rev: 7.1.0 # Use a specific version
+    hooks:
+    -   id: flake8
+-   repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.10.1 # Use a specific version
+    hooks:
+    -   id: mypy
+        # You might need to add additional_dependencies if your project uses stubs
+        # additional_dependencies: [types-requests, ...]
+-   repo: https://github.com/Yelp/detect-secrets
+    rev: v1.5.0 # Use a specific version
+    hooks:
+    -   id: detect-secrets
+        # Exclude files if necessary, e.g., example files
+        # exclude: .*/tests/.*|.*/fixtures/.*

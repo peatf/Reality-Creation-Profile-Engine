@@ -1,0 +1,33 @@
+fastapi
+uvicorn[standard]
+jplephem # JPL Ephemeris library
+numpy # Dependency for jplephem
+skyfield # For time scales, coordinate transforms, potentially angles/houses
+httpx
+pytz
+rdflib
+# flatlib
+pydantic # For data validation models (missing from original)
+pytest # Testing framework
+pytest-mock # For mocking in tests
+pytest-asyncio # For testing async code
+googlemaps # For Google Geocoding API
+timezonefinder # For finding timezone from lat/lon
+SQLAlchemy~=1.4.52
+redis # For Redis cache
+confluent-kafka[avro] # For Kafka integration with Avro
+psycopg2-binary # PostgreSQL adapter
+alembic # Database migration tool
+asyncpg # Async PostgreSQL driver for SQLAlchemy
+typing_extensions # For Annotated types if needed
+celery[redis] # Celery task queue (with redis result backend/broker support)
+python-dotenv # For loading .env files
+greenlet # Required for SQLAlchemy async run_sync
+# Testing Dependencies for Kafka
+pytest-cov
+testcontainers
+fastavro
+passlib[bcrypt]
+pandas
+PyYAML
+aiokafka # For asynchronous Kafka operations, used in chart_calc service

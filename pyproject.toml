@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "reality_creation_profile_engine"
+version = "0.1.0"
+description = "Reality Creation Profile Engine"
+readme = "README.md"
+requires-python = ">=3.9" # Specify your minimum Python version
+# Add classifiers, authors, etc. as needed
+# dependencies = [] # Dependencies are listed in requirements.txt
+
+[tool.setuptools.packages.find]
+where = ["src"] # Look for packages in the 'src' directory
+
+[tool.pytest.ini_options]
+pythonpath = [
+  "." # Add project root to pythonpath for pytest
+]
+asyncio_mode = "auto" # Or "strict" - helps with asyncio tests
+asyncio_default_fixture_loop_scope = "function"

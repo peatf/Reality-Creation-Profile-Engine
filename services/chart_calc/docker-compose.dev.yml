@@ -1,0 +1,83 @@
+version: '3.8'
+
+services:
+  chart_calculation_service:
+    build:
+      context: . # Context is services/chart_calc
+      dockerfile: ./docker/Dockerfile
+    container_name: chart_calc_service
+    ports:
+      - "8001:8000" # Expose service on host port 8001, container port 8000
+    volumes:
+      - ./app:/app/app # Mount the app directory for live reloading
+    environment:
+      # These should match the services defined below or in your main docker-compose file
+      REDIS_URL: "redis://redis_cache:6379/0"
+      KAFKA_BOOTSTRAP_SERVERS: "kafka_broker:9092"
+      # Add any other environment variables needed by the app
+      # E.g., LOG_LEVEL: "INFO"
+    depends_on:
+      - redis_cache
+      - kafka_broker
+    networks:
+      - chart_calc_network
+
+  redis_cache:
+    image: redis:7.2-alpine
+    container_name: chart_calc_redis
+    ports:
+      - "6380:6379" # Expose Redis on host port 6380 for direct access if needed
+    volumes:
+      - chart_calc_redis_data:/data
+    networks:
+      - chart_calc_network
+
+  kafka_broker:
+    image: confluentinc/cp-kafka:7.5.3 # Using Confluent Kafka image
+    container_name: chart_calc_kafka
+    ports:
+      # To connect from outside Docker (e.g. local tools) to Kafka:
+      - "9093:9093" # External access to Kafka broker
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: 'zookeeper:2181' # Assumes Zookeeper is running
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka_broker:9092,PLAINTEXT_HOST://localhost:9093
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_CONFLUENT_LICENSE_TOPIC_REPLICATION_FACTOR: 1 # For Confluent images
+      KAFKA_CONFLUENT_BALANCER_TOPIC_REPLICATION_FACTOR: 1 # For Confluent images
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      # KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true" # Enable for dev if topics aren't pre-created
+    depends_on:
+      - zookeeper
+    networks:
+      - chart_calc_network
+
+  zookeeper: # Kafka dependency
+    image: confluentinc/cp-zookeeper:7.5.3
+    container_name: chart_calc_zookeeper
+    ports:
+      - "2182:2181" # Expose Zookeeper on host port 2182 if needed
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    networks:
+      - chart_calc_network
+
+volumes:
+  chart_calc_redis_data:
+    driver: local
+
+networks:
+  chart_calc_network:
+    driver: bridge
+
+# To run this specific compose file:
+# docker-compose -f services/chart_calc/docker-compose.dev.yml up --build
+#
+# Notes for integration into a larger docker-compose.yml:
+# - Ensure network names don't clash or merge them.
+# - Service names (redis_cache, kafka_broker, zookeeper) might need to be unique or shared.
+# - Port mappings might need adjustment to avoid conflicts.
