@@ -1,193 +1,253 @@
 import pytest
 import pytest_asyncio
-from unittest.mock import MagicMock, patch, AsyncMock # Add AsyncMock import
+from unittest.mock import patch, AsyncMock
+import json
 
 from services.kg.app.graph_schema.nodes import AstroFeatureNode
 from services.kg.app.crud.astrofeature_crud import (
-    create_astrofeature,
-    get_astrofeature_by_name,
+    upsert_astrofeature,         # Changed
+    get_astrofeature_by_name_and_type, # Changed
     get_astrofeatures_by_type,
-    update_astrofeature,
+    update_astrofeature_properties, # Changed
     delete_astrofeature
 )
 from services.kg.app.crud.base_dao import (
-    NodeCreationError,
     NodeNotFoundError,
     UpdateError,
     DeletionError,
-    UniqueConstraintViolationError,
+    UniqueConstraintViolationError, # Should be rare with MERGE on logical key
     DAOException
 )
+from services.kg.app.graph_schema.constants import ASTROFEATURE_LABEL
 
-import json # Add json import
 
 # Sample AstroFeature Data
-SAMPLE_ASTROFEATURE_RAW_DATA = {
-    "name": "Sun_in_Aries_Test",
-    "feature_type": "planet_in_sign",
-    "details": {"sign_degree": 10.5, "house": "1st"}
-}
-# Removed module-level instantiation causing collection error
-# SAMPLE_ASTROFEATURE_NODE = AstroFeatureNode(**SAMPLE_ASTROFEATURE_MODEL_DATA)
+FEATURE_NAME = "Sun_in_Aries_Test"
+FEATURE_TYPE = "planet_in_sign"
+INITIAL_DETAILS_DICT = {"sign_degree": 10.5, "house": "1st", "orb": 1.0}
+INITIAL_DETAILS_JSON_STR = json.dumps(INITIAL_DETAILS_DICT)
 
 @pytest_asyncio.fixture
-async def sample_astrofeature_node_fixture():
-    # Create the model within the fixture, ensuring details are serialized
-    model_data = {
-         **SAMPLE_ASTROFEATURE_RAW_DATA,
-         "details": json.dumps(SAMPLE_ASTROFEATURE_RAW_DATA["details"])
+def sample_astrofeature_data() -> dict:
+    """Raw data for DB mock return, details as JSON string."""
+    return {
+        "name": FEATURE_NAME,
+        "feature_type": FEATURE_TYPE,
+        "details": INITIAL_DETAILS_JSON_STR # Stored as JSON string in DB
     }
-    return AstroFeatureNode(**model_data)
 
+@pytest_asyncio.fixture
+def sample_astrofeature_node(sample_astrofeature_data: dict) -> AstroFeatureNode:
+    """AstroFeatureNode instance for passing to CRUD functions, details as dict."""
+    # Node model expects dict for Json[Dict] field
+    data_for_model = sample_astrofeature_data.copy()
+    data_for_model["details"] = json.loads(sample_astrofeature_data["details"])
+    return AstroFeatureNode(**data_for_model)
+
+
+# --- upsert_astrofeature Tests ---
 @pytest.mark.asyncio
-async def test_create_astrofeature_success(mock_neo4j_driver, sample_astrofeature_node_fixture: AstroFeatureNode):
-    mock_tx_run_result = mock_neo4j_driver["tx_run_result"]
-    # Mock DB returns properties as they would be stored (details as string)
-    mock_db_return_data = {
-        **SAMPLE_ASTROFEATURE_RAW_DATA,
-        "details": json.dumps(SAMPLE_ASTROFEATURE_RAW_DATA["details"])
-    }
-    mock_tx_run_result.single.return_value = {"af": mock_db_return_data}
+async def test_upsert_astrofeature_create_success(mock_neo4j_session, sample_astrofeature_node: AstroFeatureNode, sample_astrofeature_data: dict):
+    """Test successful creation of an AstroFeatureNode via upsert_astrofeature."""
+    mock_cursor = mock_neo4j_session["cursor"]
+    mock_session_obj = mock_neo4j_session["session"]
+    # Access the mock_tx instance used by the session's execute_write/execute_merge
+    # This assumes execute_write is called once and its first arg is the transaction lambda
+    # And that lambda's __self__ attribute points to the mock_tx
+    # This is a bit fragile and depends on conftest.py implementation details.
+    # A cleaner way might be to have conftest yield mock_tx directly if needed for assertions.
+    # For now, this is a common pattern to get to the mock_tx.run
+    mock_tx = mock_session_obj.execute_write.call_args[0][0].__self__
 
-    created_feature = await create_astrofeature(sample_astrofeature_node_fixture) # Pass the validated model
+
+    # Simulate MERGE returning the created node's properties (details as JSON string)
+    mock_cursor.single.return_value = {"af": sample_astrofeature_data}
+
+    created_feature = await upsert_astrofeature(sample_astrofeature_node)
 
     assert created_feature is not None
-    assert created_feature.name == sample_astrofeature_node_fixture.name
-    assert created_feature.feature_type == sample_astrofeature_node_fixture.feature_type
-    mock_neo4j_driver["session"].execute_write.assert_called_once()
+    assert created_feature.name == FEATURE_NAME
+    assert created_feature.feature_type == FEATURE_TYPE
+    assert created_feature.details == INITIAL_DETAILS_DICT # Model should parse JSON string to dict
+    
+    mock_session_obj.execute_write.assert_called_once()
+    
+    called_query = mock_tx.run.call_args[0][0]
+    assert f"MERGE (af:{ASTROFEATURE_LABEL} {{name: $name, feature_type: $feature_type}})" in called_query
+    assert "ON CREATE SET af = $create_props" in called_query
+    assert "ON MATCH SET af += $match_props" in called_query
+    
+    call_params = mock_tx.run.call_args[0][1]
+    assert call_params["name"] == FEATURE_NAME
+    assert call_params["feature_type"] == FEATURE_TYPE
+    # create_props will have details as a dict because AstroFeatureNode.model_dump() is used
+    assert call_params["create_props"]["details"] == INITIAL_DETAILS_DICT
+    # match_props will also have details as a dict
+    assert call_params["match_props"]["details"] == INITIAL_DETAILS_DICT
+
 
 @pytest.mark.asyncio
-async def test_create_astrofeature_already_exists(mock_neo4j_driver, sample_astrofeature_node_fixture: AstroFeatureNode):
-    mock_session = mock_neo4j_driver["session"]
-    mock_session.execute_write.side_effect = UniqueConstraintViolationError("AstroFeature already exists")
+async def test_upsert_astrofeature_update_success(mock_neo4j_session, sample_astrofeature_node: AstroFeatureNode):
+    mock_cursor = mock_neo4j_session["cursor"]
+    mock_session_obj = mock_neo4j_session["session"]
+    mock_tx = mock_neo4j_session["tx"] # Get mock_tx from the fixture yield
 
-    with pytest.raises(NodeCreationError, match="already exists"):
-        await create_astrofeature(sample_astrofeature_node_fixture)
+    updated_details_dict = {"sign_degree": 12.0, "house": "2nd", "description": "Updated via upsert", "orb": 1.5}
 
-@pytest.mark.asyncio
-async def test_create_astrofeature_dao_exception(mock_neo4j_driver, sample_astrofeature_node_fixture: AstroFeatureNode):
-    mock_session = mock_neo4j_driver["session"]
-    mock_session.execute_write.side_effect = DAOException("Generic DB error")
+    # Input to upsert_astrofeature
+    updated_node_input = sample_astrofeature_node.model_copy(update={"details": updated_details_dict})
 
-    with pytest.raises(NodeCreationError, match="Database error creating AstroFeature"):
-        await create_astrofeature(sample_astrofeature_node_fixture)
-
-@pytest.mark.asyncio
-async def test_get_astrofeature_by_name_found(mock_neo4j_driver, sample_astrofeature_node_fixture: AstroFeatureNode):
-    mock_tx_run_result = mock_neo4j_driver["tx_run_result"]
-    # Assume DB returns properties with details as string
-    mock_db_return_data = {
-        **SAMPLE_ASTROFEATURE_RAW_DATA,
-        "details": json.dumps(SAMPLE_ASTROFEATURE_RAW_DATA["details"])
+    # DB mock return (details as JSON string)
+    db_return_data = {
+        "name": FEATURE_NAME,
+        "feature_type": FEATURE_TYPE,
+        "details": json.dumps(updated_details_dict)
     }
-    mock_tx_run_result.data.return_value = [{"af": mock_db_return_data}]
+    mock_cursor.single.return_value = {"af": db_return_data}
 
-    retrieved_feature = await get_astrofeature_by_name(sample_astrofeature_node_fixture.name)
+    # --- Act ---
+    updated_feature = await upsert_astrofeature(updated_node_input)
 
-    assert retrieved_feature is not None
-    assert retrieved_feature.name == sample_astrofeature_node_fixture.name
-    mock_neo4j_driver["session"].execute_read.assert_called_once()
+    # --- Assert ---
+    assert updated_feature is not None
+    assert updated_feature.name == FEATURE_NAME
+    assert updated_feature.feature_type == FEATURE_TYPE
+    assert updated_feature.details == updated_details_dict
+
+    # Assert mock calls *after* the function call
+    mock_session_obj.execute_write.assert_called_once()
+    mock_tx.run.assert_called_once()
+    call_params = mock_tx.run.call_args[0][1]
+    assert call_params["match_props"]["details"] == updated_details_dict
+
 
 @pytest.mark.asyncio
-async def test_get_astrofeature_by_name_not_found(mock_neo4j_driver):
-    mock_tx_run_result = mock_neo4j_driver["tx_run_result"]
-    mock_tx_run_result.data.return_value = []
+async def test_upsert_astrofeature_dao_exception(mock_neo4j_session, sample_astrofeature_node: AstroFeatureNode):
+    mock_session_obj = mock_neo4j_session["session"]
+    mock_session_obj.execute_write.side_effect = DAOException("Generic DB error for upsert astro")
 
-    retrieved_feature = await get_astrofeature_by_name("Non_Existent_Feature")
+    with pytest.raises(DAOException, match="Database error upserting AstroFeature"):
+        await upsert_astrofeature(sample_astrofeature_node)
+
+# --- get_astrofeature_by_name_and_type Tests ---
+@pytest.mark.asyncio
+async def test_get_astrofeature_by_name_and_type_found(mock_neo4j_session, sample_astrofeature_data: dict):
+    mock_cursor = mock_neo4j_session["cursor"]
+    mock_session_obj = mock_neo4j_session["session"]
+    mock_tx = mock_neo4j_session["tx"] # Get mock_tx from the fixture yield
+
+    mock_cursor.data.return_value = [{"af": sample_astrofeature_data}]
+
+    # --- Act ---
+    retrieved_feature = await get_astrofeature_by_name_and_type(FEATURE_NAME, FEATURE_TYPE)
+
+    # --- Assert ---
+    assert retrieved_feature is not None
+    assert retrieved_feature.name == FEATURE_NAME
+    assert retrieved_feature.feature_type == FEATURE_TYPE
+    assert retrieved_feature.details == INITIAL_DETAILS_DICT
+
+    # Assert mock calls *after* the function call
+    mock_session_obj.execute_read.assert_called_once()
+    mock_tx.run.assert_called_once()
+    called_query = mock_tx.run.call_args[0][0]
+    assert f"MATCH (af:{ASTROFEATURE_LABEL} {{name: $name, feature_type: $feature_type}})" in called_query
+
+@pytest.mark.asyncio
+async def test_get_astrofeature_by_name_and_type_not_found(mock_neo4j_session):
+    mock_cursor = mock_neo4j_session["cursor"]
+    mock_cursor.data.return_value = []
+
+    retrieved_feature = await get_astrofeature_by_name_and_type("Non_Existent", "some_type")
     assert retrieved_feature is None
 
+# --- get_astrofeatures_by_type Tests --- (largely unchanged but verify mock data)
 @pytest.mark.asyncio
-async def test_get_astrofeatures_by_type_found(mock_neo4j_driver, sample_astrofeature_node_fixture: AstroFeatureNode):
-    mock_tx_run_result = mock_neo4j_driver["tx_run_result"]
-    # Assume DB returns properties with details as string
-    mock_db_return_data = {
-        **SAMPLE_ASTROFEATURE_RAW_DATA,
-        "details": json.dumps(SAMPLE_ASTROFEATURE_RAW_DATA["details"])
-    }
-    mock_tx_run_result.data.return_value = [{"af": mock_db_return_data}]
+async def test_get_astrofeatures_by_type_found(mock_neo4j_session, sample_astrofeature_data: dict):
+    mock_cursor = mock_neo4j_session["cursor"]
+    mock_cursor.data.return_value = [{"af": sample_astrofeature_data}] # Simulating one found
 
-    features = await get_astrofeatures_by_type(sample_astrofeature_node_fixture.feature_type)
+    features = await get_astrofeatures_by_type(FEATURE_TYPE)
     assert len(features) == 1
-    assert features[0].name == sample_astrofeature_node_fixture.name
+    assert features[0].name == FEATURE_NAME
+    assert features[0].details == INITIAL_DETAILS_DICT
 
+# --- update_astrofeature_properties Tests ---
 @pytest.mark.asyncio
-async def test_get_astrofeatures_by_type_not_found(mock_neo4j_driver):
-    mock_tx_run_result = mock_neo4j_driver["tx_run_result"]
-    mock_tx_run_result.data.return_value = []
-    features = await get_astrofeatures_by_type("non_existent_type")
-    assert len(features) == 0
+async def test_update_astrofeature_properties_success(mock_neo4j_session, sample_astrofeature_data: dict):
+    mock_cursor = mock_neo4j_session["cursor"]
+    mock_session_obj = mock_neo4j_session["session"]
+    mock_tx = mock_neo4j_session["tx"] # Get mock_tx from the fixture yield
 
-@pytest.mark.asyncio
-async def test_get_astrofeature_dao_exception(mock_neo4j_driver):
-    mock_session = mock_neo4j_driver["session"]
-    mock_session.execute_read.side_effect = DAOException("DB error during get")
-    
-    feature = await get_astrofeature_by_name("any_name")
-    assert feature is None # Current impl returns None on DAOException for gets
-    features_list = await get_astrofeatures_by_type("any_type")
-    assert features_list == [] # Current impl returns empty list
+    update_payload = {"details": {"description": "Partially Updated", "orb": 2.0}} # Completely replaces details
 
-@pytest.mark.asyncio
-async def test_update_astrofeature_success(mock_neo4j_driver, sample_astrofeature_node_fixture: AstroFeatureNode):
-    mock_tx_run_result = mock_neo4j_driver["tx_run_result"]
-    updated_details = {"sign_degree": 12.0, "house": "2nd", "description": "Updated"}
-    
-    expected_updated_raw_data = SAMPLE_ASTROFEATURE_RAW_DATA.copy()
-    expected_updated_raw_data["details"] = updated_details
-    # Mock DB return (details as string)
-    mock_db_return_data = {
-         **expected_updated_raw_data,
-         "details": json.dumps(updated_details)
-    }
-    mock_tx_run_result.single.return_value = {"af": mock_db_return_data}
+    # Expected DB state after update (details as JSON string)
+    expected_db_data_after_update = sample_astrofeature_data.copy()
+    expected_db_data_after_update["details"] = json.dumps(update_payload["details"])
+    mock_cursor.single.return_value = {"af": expected_db_data_after_update}
 
-    # Pass the dict to update, CRUD should handle serialization
-    updated_feature = await update_astrofeature(sample_astrofeature_node_fixture.name, {"details": json.dumps(updated_details)})
+    # --- Act ---
+    updated_feature = await update_astrofeature_properties(FEATURE_NAME, FEATURE_TYPE, update_payload)
 
+    # --- Assert ---
     assert updated_feature is not None
-    assert updated_feature.details["description"] == "Updated"
-    assert updated_feature.details["house"] == "2nd"
-    mock_neo4j_driver["session"].execute_write.assert_called_once()
+    assert updated_feature.details == update_payload["details"]
+
+    # Assert mock calls *after* the function call
+    mock_session_obj.execute_write.assert_called_once()
+    mock_tx.run.assert_called_once()
+    called_query = mock_tx.run.call_args[0][0]
+    assert f"MATCH (af:{ASTROFEATURE_LABEL} {{name: $name, feature_type: $feature_type}})" in called_query
+    assert "SET af += $props_to_set" in called_query
+    assert mock_tx.run.call_args[0][1]["props_to_set"] == update_payload
+
 
 @pytest.mark.asyncio
-async def test_update_astrofeature_not_found(mock_neo4j_driver):
-    mock_tx_run_result = mock_neo4j_driver["tx_run_result"]
-    mock_tx_run_result.single.return_value = None # Simulate update MATCH found nothing
+async def test_update_astrofeature_properties_not_found(mock_neo4j_session):
+    mock_cursor = mock_neo4j_session["cursor"]
+    mock_session_obj = mock_neo4j_session["session"]
+    mock_cursor.single.return_value = None
 
-    # Mock the subsequent get_astrofeature_by_name call within update_astrofeature
-    with patch('services.kg.app.crud.astrofeature_crud.get_astrofeature_by_name', AsyncMock(return_value=None)):
-        with pytest.raises(NodeNotFoundError):
-            await update_astrofeature("Non_Existent_Feature_Update", {"details": {"info": "new info"}})
+    with pytest.raises(NodeNotFoundError):
+        await update_astrofeature_properties("Non_Existent", "some_type", {"details": {"info": "new"}})
+    mock_session_obj.execute_write.assert_called_once()
 
+# --- delete_astrofeature Tests ---
 @pytest.mark.asyncio
-async def test_update_astrofeature_dao_exception(mock_neo4j_driver):
-    mock_session = mock_neo4j_driver["session"]
-    mock_session.execute_write.side_effect = DAOException("DB error during update")
+async def test_delete_astrofeature_success(mock_neo4j_session, sample_astrofeature_node: AstroFeatureNode): # sample_astrofeature_node has details as dict
+    mock_session_obj = mock_neo4j_session["session"]
+    mock_cursor = mock_neo4j_session["cursor"]
+    mock_tx = mock_neo4j_session["tx"] # Get mock_tx from the fixture yield
 
-    with pytest.raises(UpdateError, match="Database error updating AstroFeature"):
-        await update_astrofeature("any_feature_name", {"details": {"info": "new info"}})
+    # Mock the internal get_astrofeature_by_name_and_type call
+    with patch('services.kg.app.crud.astrofeature_crud.get_astrofeature_by_name_and_type', AsyncMock(return_value=sample_astrofeature_node)):
+        mock_cursor.single.return_value = None # DELETE success
 
-@pytest.mark.asyncio
-async def test_delete_astrofeature_success(mock_neo4j_driver, sample_astrofeature_node_fixture: AstroFeatureNode):
-    with patch('services.kg.app.crud.astrofeature_crud.get_astrofeature_by_name', AsyncMock(return_value=sample_astrofeature_node_fixture)):
-        mock_neo4j_driver["tx_run_result"].single.return_value = None # DELETE doesn't typically return the node
+        # --- Act ---
+        deleted = await delete_astrofeature(FEATURE_NAME, FEATURE_TYPE)
 
-        deleted = await delete_astrofeature(sample_astrofeature_node_fixture.name)
+        # --- Assert ---
         assert deleted is True
-        mock_neo4j_driver["session"].execute_write.assert_called_once()
+        mock_session_obj.execute_write.assert_called_once()
+        mock_tx.run.assert_called_once() # Check transaction ran
+        called_delete_query = mock_tx.run.call_args[0][0]
+        assert f"MATCH (af:{ASTROFEATURE_LABEL} {{name: $name, feature_type: $feature_type}})" in called_delete_query
+        assert "DETACH DELETE af" in called_delete_query
+
 
 @pytest.mark.asyncio
-async def test_delete_astrofeature_not_found(mock_neo4j_driver):
-    with patch('services.kg.app.crud.astrofeature_crud.get_astrofeature_by_name', AsyncMock(return_value=None)):
-        deleted = await delete_astrofeature("Non_Existent_Feature_Delete")
+async def test_delete_astrofeature_not_found(mock_neo4j_session):
+    mock_session_obj = mock_neo4j_session["session"]
+    with patch('services.kg.app.crud.astrofeature_crud.get_astrofeature_by_name_and_type', AsyncMock(return_value=None)):
+        deleted = await delete_astrofeature("Non_Existent", "some_type")
         assert deleted is False
-        mock_neo4j_driver["session"].execute_write.assert_not_called()
+        mock_session_obj.execute_write.assert_not_called()
+
 
 @pytest.mark.asyncio
-async def test_delete_astrofeature_dao_exception(mock_neo4j_driver, sample_astrofeature_node_fixture: AstroFeatureNode):
-    with patch('services.kg.app.crud.astrofeature_crud.get_astrofeature_by_name', AsyncMock(return_value=sample_astrofeature_node_fixture)):
-        mock_session = mock_neo4j_driver["session"]
-        mock_session.execute_write.side_effect = DAOException("DB error during delete")
-
+async def test_delete_astrofeature_dao_exception_on_delete(mock_neo4j_session, sample_astrofeature_node: AstroFeatureNode):
+    mock_session_obj = mock_neo4j_session["session"]
+    with patch('services.kg.app.crud.astrofeature_crud.get_astrofeature_by_name_and_type', AsyncMock(return_value=sample_astrofeature_node)):
+        mock_session_obj.execute_write.side_effect = DAOException("DB error during actual delete astro")
         with pytest.raises(DeletionError, match="Database error deleting AstroFeature"):
-            await delete_astrofeature(sample_astrofeature_node_fixture.name)
+            await delete_astrofeature(FEATURE_NAME, FEATURE_TYPE)

@@ -18,9 +18,16 @@ NAMESPACE = "rcpe:"
 logger = logging.getLogger(__name__)
 
 # NAMESPACE_PREFIX is removed, use NAMESPACE internally
+ 
+# Sentinel object to differentiate cached None from a cache miss
+class _CacheSentinelClass:
+    def __repr__(self):
+        return "CACHE_SENTINEL_INSTANCE"
 
+_CACHE_SENTINEL = _CacheSentinelClass()
+ 
 R = TypeVar('R')
-
+ 
 def redis_cache(ttl: int = 3600, key_prefix: str = "") -> Callable[[Callable[..., Coroutine[Any, Any, R]]], Callable[..., Coroutine[Any, Any, R]]]:
     """
     Asynchronous caching decorator using Redis.
@@ -70,30 +77,37 @@ def redis_cache(ttl: int = 3600, key_prefix: str = "") -> Callable[[Callable[...
                 cached_result = await asyncio.wait_for(redis_conn.get(cache_key), timeout=2.0)
                 logger.debug(f"[{func.__qualname__}] GET result for key {cache_key}: {'HIT (data found)' if cached_result is not None else 'MISS (no data)'}") # ADDED LOGGING
                 if cached_result is not None:
-                    logger.debug(f"Cache hit for {func.__qualname__} with key {cache_key}") # Existing log
+                    logger.debug(f"Cache hit for {func.__qualname__} with key {cache_key}")
                     try:
-                        return pickle.loads(cached_result) # type: ignore
+                        deserialized_result = pickle.loads(cached_result) # type: ignore
+                        if deserialized_result is _CACHE_SENTINEL:
+                            logger.debug(f"Cache hit for {func.__qualname__} with key {cache_key}, returning None (sentinel found)")
+                            return None
+                        return deserialized_result
                     except (pickle.UnpicklingError, TypeError, EOFError) as e:
                         logger.warning(f"Failed to unpickle cached data for key {cache_key}: {e}. Fetching live data.")
-                        # Optionally delete the corrupted key: await redis_conn.unlink(cache_key) # Use unlink
-
+                        # Optionally delete the corrupted key: await redis_conn.unlink(cache_key)
+ 
                 # Execute function if cache miss
                 logger.debug(f"Cache miss for {func.__qualname__} with key {cache_key}")
                 result = await func(*args, **kwargs)
-
+ 
+                # Determine what to store: result or sentinel for None
+                value_to_cache = result if result is not None else _CACHE_SENTINEL
+ 
                 # Store result in cache
                 try:
-                    serialized_result = pickle.dumps(result, protocol=5)
+                    serialized_result = pickle.dumps(value_to_cache, protocol=5)
                     # Use SETEX with timeout to enforce TTL
-                    logger.debug(f"[{func.__qualname__}] Attempting SETEX for key: {cache_key} with TTL: {ttl}") # ADDED LOGGING
+                    logger.debug(f"[{func.__qualname__}] Attempting SETEX for key: {cache_key} with TTL: {ttl}")
                     await asyncio.wait_for(redis_conn.setex(cache_key, ttl, serialized_result), timeout=2.0)
-                    logger.debug(f"Stored result for {func.__qualname__} in cache with key {cache_key}, TTL={ttl}") # Existing log
+                    logger.debug(f"Stored {'sentinel for None' if value_to_cache is _CACHE_SENTINEL else 'result'} for {func.__qualname__} in cache with key {cache_key}, TTL={ttl}")
                 except (pickle.PicklingError, TypeError) as e:
-                     logger.warning(f"Failed to pickle result for {func.__qualname__} key {cache_key}: {e}. Result not cached.")
+                     logger.warning(f"Failed to pickle result/sentinel for {func.__qualname__} key {cache_key}: {e}. Result not cached.")
                 except RedisError as e:
                     logger.warning(f"Redis error during SET for key {cache_key}: {e}. Result not cached.")
-
-                return result
+ 
+                return result # Return the original result, not the sentinel
 
             except asyncio.TimeoutError:
                 logger.warning(f"Redis operation timed out for {func.__qualname__}. Executing live function.")

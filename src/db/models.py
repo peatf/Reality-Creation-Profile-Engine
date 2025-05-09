@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 
 from sqlalchemy import (
     MetaData,
@@ -14,8 +14,10 @@ from sqlalchemy import (
     BigInteger,
     func,
     PrimaryKeyConstraint, # Added missing import
+    JSON, # Import generic JSON type
 )
-from sqlalchemy.dialects.postgresql import UUID, JSONB
+from sqlalchemy.dialects.postgresql import UUID # Keep UUID for PostgreSQL
+# Remove JSONB import: from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.dialects.postgresql.types import TIMESTAMP # Correct import for TIMESTAMP(timezone=True)
 from sqlalchemy.orm import declarative_base, relationship
 
@@ -59,9 +61,9 @@ class Profile(Base):
     birth_lat = Column(Numeric(9, 6), nullable=False)
     birth_lon = Column(Numeric(9, 6), nullable=False)
     birth_tz = Column(String(64), nullable=False)
-    hd_data = Column(JSONB, nullable=False)
-    astro_data = Column(JSONB, nullable=False)
-    synthesis_results = Column(JSONB, nullable=True)
+    hd_data = Column(JSON, nullable=False) # Use generic JSON
+    astro_data = Column(JSON, nullable=False) # Use generic JSON
+    synthesis_results = Column(JSON, nullable=True) # Use generic JSON
     created_at = Column(TIMESTAMP(timezone=True), server_default=func.now())
     updated_at = Column(TIMESTAMP(timezone=True), server_default=func.now(), onupdate=func.now())
 
@@ -76,7 +78,7 @@ class TypologyAnswer(Base):
     user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     question_id = Column(String(64), nullable=False)
     answer_value = Column(String(64), nullable=False)
-    answered_at = Column(TIMESTAMP(timezone=True), nullable=False, default=func.now()) # Defaulting to now() for simplicity, adjust if specific timestamp needed
+    answered_at = Column(TIMESTAMP(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc))
 
     user = relationship("User", back_populates="typology_answers")
 
@@ -90,10 +92,21 @@ class TypologyResult(Base):
     id = Column(UUID(as_uuid=True), ForeignKey("profiles.id", ondelete="CASCADE"), primary_key=True)
     typology_name = Column(String(64), nullable=False)
     confidence = Column(Numeric(3, 2), nullable=False)
-    raw_vector = Column(JSONB, nullable=False)
-    generated_at = Column(TIMESTAMP(timezone=True), nullable=False, default=func.now()) # Defaulting to now()
-
+    raw_vector = Column(JSON, nullable=False) # Use generic JSON
+    generated_at = Column(TIMESTAMP(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc))
+ 
     profile = relationship("Profile", back_populates="typology_result")
+ 
+    def __init__(self, *args, profile_id: uuid.UUID = None, **kwargs):
+        if profile_id is not None:
+            if 'id' in kwargs and kwargs['id'] != profile_id:
+                # Or handle as an error, e.g., raise ValueError
+                # For now, let 'id' in kwargs take precedence if both are somehow passed and differ.
+                # However, the typical use case for adding 'profile_id' is when 'id' isn't directly passed.
+                pass # Allow explicit 'id' to override 'profile_id' if both are passed.
+            elif 'id' not in kwargs: # Only set 'id' from 'profile_id' if 'id' isn't already specified.
+                kwargs['id'] = profile_id
+        super().__init__(*args, **kwargs)
 
 
 class LogEntry(Base):
@@ -105,8 +118,8 @@ class LogEntry(Base):
     correlation_id = Column(UUID(as_uuid=True), nullable=True)
     event_type = Column(String(64), nullable=False)
     service_origin = Column(String(64), nullable=True)
-    payload = Column(JSONB, nullable=False)
-    log_timestamp = Column(TIMESTAMP(timezone=True), nullable=False, default=func.now()) # Defaulting to now(), Changed: Part of composite PK
+    payload = Column(JSON, nullable=False) # Use generic JSON
+    log_timestamp = Column(TIMESTAMP(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc)) # Part of composite PK
 
     user = relationship("User", back_populates="log_entries")
 

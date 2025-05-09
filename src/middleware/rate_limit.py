@@ -129,10 +129,11 @@ class RateLimitingMiddleware(BaseHTTPMiddleware):
         if current_count > limit:
             retry_after = WINDOW_SIZE_SECONDS # Simple retry after the window ends
             logger.warning(f"Rate limit exceeded for user {user_id} (tier: {user_tier}). Count: {current_count}, Limit: {limit}")
+            # Use lowercase header names as specified in requirement
             headers = {
-                "X-RateLimit-Limit": str(limit),
-                "X-RateLimit-Remaining": "0",
-                "Retry-After": str(retry_after),
+                "x-ratelimit-limit": str(limit),
+                "x-ratelimit-remaining": "0",
+                "retry-after": str(retry_after), # Corresponds to 'reset' concept
             }
             return JSONResponse(
                 status_code=429,
@@ -144,9 +145,10 @@ class RateLimitingMiddleware(BaseHTTPMiddleware):
         response = await call_next(request)
         # Ensure headers are added even if response is not JSONResponse
         if hasattr(response, "headers"):
+             # Use lowercase header names as specified in requirement
              headers = {
-                 "X-RateLimit-Limit": str(limit),
-                 "X-RateLimit-Remaining": str(remaining),
+                 "x-ratelimit-limit": str(limit),
+                 "x-ratelimit-remaining": str(remaining),
              }
              response.headers.update(headers)
              logger.debug(f"Rate limit check passed for user {user_id}. Count: {current_count}, Remaining: {remaining}")

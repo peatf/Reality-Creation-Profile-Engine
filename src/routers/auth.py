@@ -71,19 +71,34 @@ async def _rate_limit_check(
              return
 
         current_count = int(current_count)
+        remaining = max(0, limit - current_count) # Calculate remaining requests
+        
+        # Get TTL for the reset time
+        ttl = await redis.ttl(key)
+        reset_time_seconds = int(ttl) if ttl and ttl > 0 else window_seconds # Fallback to window if TTL is not set or -1/-2
 
+        headers = {
+            "X-RateLimit-Limit": str(limit),
+            "X-RateLimit-Remaining": str(remaining),
+            "X-RateLimit-Reset": str(reset_time_seconds), # Seconds until reset
+            "Retry-After": str(reset_time_seconds) # More specific than full window
+        }
+ 
         if current_count > limit:
-            _log.warning(f"Rate limit exceeded for {key_prefix}:{normalized_identifier}. Count: {current_count}, Limit: {limit}")
+            _log.warning(f"Rate limit exceeded for {key_prefix}:{normalized_identifier}. Count: {current_count}, Limit: {limit}. Headers: {headers}")
             raise HTTPException(
                 status_code=status.HTTP_429_TOO_MANY_REQUESTS,
                 detail=ErrorResponse(detail=ErrorDetail(
                     code="RATE_LIMIT_EXCEEDED",
                     message=f"Too many requests. Limit: {limit} per {window_seconds} seconds."
                 )).model_dump(),
-                headers={"Retry-After": str(window_seconds)} # Inform client when to retry
+                headers=headers
             )
-        _log.debug(f"Rate limit check passed for {key_prefix}:{normalized_identifier}. Count: {current_count}/{limit}")
-
+        _log.debug(f"Rate limit check passed for {key_prefix}:{normalized_identifier}. Count: {current_count}/{limit}. Headers to be available (though not sent on 2xx): {headers}")
+        # Note: For successful requests, these headers are typically not added by this function directly,
+        # but could be added by a middleware that calls this check and then adds headers to the actual response.
+        # For now, they are primarily for the 429 response.
+ 
     except RedisError as e:
         _log.error(f"Redis error during rate limiting for {key}:{normalized_identifier}: {e}. Allowing request.")
         # Fail open on Redis errors

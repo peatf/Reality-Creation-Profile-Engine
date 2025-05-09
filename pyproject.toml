@@ -15,8 +15,16 @@ requires-python = ">=3.9" # Specify your minimum Python version
 where = ["src"] # Look for packages in the 'src' directory
 
 [tool.pytest.ini_options]
-pythonpath = [
-  "." # Add project root to pythonpath for pytest
+testpaths = [
+    "tests",
+    "services/chart_calc/tests",
+    "services/kg/tests"
+]
+# python_paths = ["."] # Removed this line
+addopts = "--strict-config --strict-markers --import-mode=importlib"
+markers = [
+    "e2e: marks tests as end-to-end tests",
+    "integration: marks tests as integration tests"
 ]
 asyncio_mode = "auto" # Or "strict" - helps with asyncio tests
 asyncio_default_fixture_loop_scope = "function"

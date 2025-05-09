@@ -28,6 +28,8 @@ pytest-cov
 testcontainers
 fastavro
 passlib[bcrypt]
+argon2-cffi # Required backend for passlib bcrypt
 pandas
 PyYAML
 aiokafka # For asynchronous Kafka operations, used in chart_calc service
+aiosqlite # Required for async sqlite access in tests

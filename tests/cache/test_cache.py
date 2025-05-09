@@ -4,7 +4,8 @@ import os
 import pickle
 import time
 import uuid
-from typing import Callable # Added import
+import hashlib # Added top-level import
+from typing import Callable, Optional # Added Optional import
 from unittest.mock import patch, AsyncMock
 
 import pytest
@@ -129,7 +130,7 @@ async def test_cache_hit_miss(redis_client: redis.Redis, cached_function_fixture
 
     # Verify data in Redis (optional, but good for debugging)
     # Construct the expected key
-    import hashlib # Ensure hashlib is imported
+    # import hashlib # Removed local import
     arg_key_part = pickle.dumps((("data1",), {"kwarg1": 10}), protocol=5)
     hashed_args = hashlib.sha1(arg_key_part).hexdigest()
     # Use the correct key format including module and qualname
@@ -287,6 +288,60 @@ async def test_clear_cache_utility(redis_client: redis.Redis, cached_function_fi
 
 
 @pytest.mark.asyncio
+@pytest.mark.asyncio
+async def test_cache_handles_none_return_with_sentinel(redis_client: redis.Redis):
+    """Tests that None is correctly cached and retrieved using the sentinel."""
+    global mock_call_count
+    mock_call_count = 0
+
+    @redis_cache(ttl=60)
+    async def cached_func_returns_none(param: str) -> Optional[str]:
+        global mock_call_count
+        mock_call_count += 1
+        logger.debug(f"Executing cached_func_returns_none with param={param}")
+        if param == "return_none":
+            return None
+        return f"value:{param}"
+
+    # Test case 1: Non-None value
+    logger.info("Test Sentinel: First call (non-None, miss)")
+    res1_val = await cached_func_returns_none("test_val")
+    assert mock_call_count == 1
+    assert res1_val == "value:test_val"
+
+    logger.info("Test Sentinel: Second call (non-None, hit)")
+    res2_val = await cached_func_returns_none("test_val")
+    assert mock_call_count == 1 # Hit
+    assert res2_val == "value:test_val"
+
+    # Reset for None case
+    mock_call_count = 0
+
+    # Test case 2: None value
+    logger.info("Test Sentinel: First call (None, miss)")
+    res1_none = await cached_func_returns_none("return_none")
+    assert mock_call_count == 1
+    assert res1_none is None
+
+    # Verify data in Redis (should be the sentinel object pickled)
+    # import hashlib # Removed local import
+    import pickle # Ensure pickle is imported
+    # Import the class to check its type, not the instance for `is` comparison after unpickling
+    from src.cache.decorators import _CacheSentinelClass
+    arg_key_part_none = pickle.dumps((("return_none",), {}), protocol=5) # Args for "return_none"
+    hashed_args_none = hashlib.sha1(arg_key_part_none).hexdigest()
+    expected_key_none = f"{NAMESPACE}{cached_func_returns_none.__module__}.{cached_func_returns_none.__qualname__}:{hashed_args_none}"
+
+    raw_value_none = await asyncio.wait_for(redis_client.get(expected_key_none), timeout=2.0)
+    assert raw_value_none is not None, "Cache key for None result should exist"
+    cached_data_none = pickle.loads(raw_value_none)
+    # Check if the unpickled object is an instance of our sentinel class
+    assert isinstance(cached_data_none, _CacheSentinelClass), "Cached value for None should be an instance of _CacheSentinelClass"
+ 
+    logger.info("Test Sentinel: Second call (None, hit)")
+    res2_none = await cached_func_returns_none("return_none")
+    assert mock_call_count == 1 # Should be a cache hit
+    assert res2_none is None
 async def test_cache_handles_redis_down(cached_function_fixture):
     """Tests fallback behavior when Redis connection fails."""
     cached_function = cached_function_fixture # Get function from fixture
@@ -338,16 +393,16 @@ async def test_cache_handles_redis_down(cached_function_fixture):
     key_set = f"{NAMESPACE}{cached_function.__module__}.{cached_function.__qualname__}:{hashed_args_set}" # Use NAMESPACE
     # Add timeout
     await asyncio.wait_for(real_conn_set.delete(key_set), timeout=2.0)
-
-    # Patch 'set' now, as decorator uses set(..., ex=ttl)
-    with patch.object(real_conn_set, 'set', new_callable=AsyncMock) as mock_redis_set:
-        mock_redis_set.side_effect = RedisError("Simulated SET error")
-
+ 
+    # Patch 'setex' as the decorator uses redis_conn.setex(key, ttl, value)
+    with patch.object(real_conn_set, 'setex', new_callable=AsyncMock) as mock_redis_setex:
+        mock_redis_setex.side_effect = RedisError("Simulated SETEX error")
+ 
         result = await cached_function("live_data_set_fail", kwarg1=70)
         assert mock_call_count == 1 # Function executed (cache miss)
         assert result["result"] == "live_data_set_fail-70"
-        mock_redis_set.assert_called_once() # SET was attempted but failed
-
+        mock_redis_setex.assert_called_once() # SETEX was attempted but failed
+ 
         # Verify the key was NOT set in Redis - add timeout
         val = await asyncio.wait_for(real_conn_set.get(key_set), timeout=2.0)
         assert val is None
@@ -400,30 +455,43 @@ async def test_cache_handles_unpickling_error(redis_client: redis.Redis, cached_
 
 @pytest.mark.asyncio
 async def test_cache_handles_pickling_error_on_set(redis_client: redis.Redis):
-    """Tests behavior when the return value cannot be pickled."""
+    """Tests behavior when the return value cannot be pickled, ensuring the error branch is hit."""
     global mock_call_count
     mock_call_count = 0
+ 
+    # Patch the logger for src.cache.decorators to check for the warning
+    with patch('src.cache.decorators.logger.warning') as mock_decorator_logger_warning:
+        logger.info("Test Pickling Error: Calling function with non-picklable return")
+        # This function returns a local function, which cannot be pickled
+        result = await cached_non_picklable_func()
+        assert mock_call_count == 1
+        assert callable(result) # Got the live result
 
-    logger.info("Test Pickling Error: Calling function with non-picklable return")
-    # This function returns a local function, which cannot be pickled
-    result = await cached_non_picklable_func()
-    assert mock_call_count == 1
-    assert callable(result) # Got the live result
-
+        # Verify the specific warning for pickling failure was logged
+        mock_decorator_logger_warning.assert_any_call(
+            f"Failed to pickle result/sentinel for {cached_non_picklable_func.__qualname__} key {ANY}: {ANY}. Result not cached."
+        )
+ 
     # Verify no key was created in Redis
     keys_found = 0
     pattern = f"{NAMESPACE}{cached_non_picklable_func.__module__}.{cached_non_picklable_func.__qualname__}:*" # Use NAMESPACE
     logger.debug(f"Test Pickling Error: Scanning for keys matching {pattern}")
-    async for key in redis_client.scan_iter(match=pattern):
-        logger.debug(f"Found unexpected key: {key}")
+    async for key_bytes in redis_client.scan_iter(match=pattern): # Iterate over bytes
+        key_str = key_bytes.decode('utf-8', errors='replace') # Decode for logging
+        logger.debug(f"Found unexpected key: {key_str}")
         keys_found += 1
     assert keys_found == 0
-
+ 
     # Call again, should execute live again as nothing was cached
-    logger.info("Test Pickling Error: Calling again, expecting live execution")
-    result2 = await cached_non_picklable_func()
-    assert mock_call_count == 2
-    assert callable(result2)
-
+    # and should log the warning again
+    with patch('src.cache.decorators.logger.warning') as mock_decorator_logger_warning_again:
+        logger.info("Test Pickling Error: Calling again, expecting live execution")
+        result2 = await cached_non_picklable_func()
+        assert mock_call_count == 2
+        assert callable(result2)
+        mock_decorator_logger_warning_again.assert_any_call(
+            f"Failed to pickle result/sentinel for {cached_non_picklable_func.__qualname__} key {ANY}: {ANY}. Result not cached."
+        )
+ 
 # TODO: Add test for concurrent hits if needed, though basic hit/miss covers atomicity implicitly for GET/SET.
 # Concurrency issues are more likely in complex operations like INCR (tested in rate limit).

@@ -196,51 +196,57 @@ def decode_and_validate(
             audience=JWT_AUDIENCE,
             issuer=JWT_ISSUER,
             options={
-                "require": ["exp", "iat", "nbf", "iss", "aud", "sub", "typ"],
-                # Leeway accounts for clock skew between servers
+                # "sub" and "jti" (for refresh) will be checked explicitly after this block
+                "require": ["exp", "iat", "nbf", "iss", "aud", "typ"],
                 "leeway": timedelta(seconds=30)
             }
         )
-
-        # Explicitly check token type
+ 
+        # Explicitly check token type first
         token_type = payload.get("typ")
         if token_type != expected_type:
             raise TokenInvalid(f"Invalid token type. Expected '{expected_type}', got '{token_type}'.", code="TOKEN_TYPE_MISMATCH")
-
-        # For refresh tokens, ensure 'jti' is present
-        if expected_type == "refresh":
-             jti = payload.get("jti")
-             if not jti:
-                 raise TokenInvalid("Refresh token missing 'jti' claim.", code="TOKEN_MISSING_JTI")
-             # Optionally validate jti format (e.g., is it a valid UUID string?)
-             try:
-                 uuid.UUID(jti)
-             except ValueError:
-                 raise TokenInvalid("Invalid 'jti' format in refresh token.", code="TOKEN_INVALID_JTI")
-
-
-        # Validate essential claims format (e.g., sub should be UUID)
+ 
+        # Then check 'sub'
         sub = payload.get("sub")
         if not sub:
-             raise TokenInvalid("Token missing 'sub' claim.", code="TOKEN_MISSING_SUB")
+            raise TokenInvalid("Token missing 'sub' claim.", code="TOKEN_MISSING_SUB")
         try:
             uuid.UUID(sub)
         except ValueError:
             raise TokenInvalid("Invalid 'sub' format in token.", code="TOKEN_INVALID_SUB")
-
-
+ 
+        # For refresh tokens, ensure 'jti' is present and valid
+        if expected_type == "refresh":
+            jti = payload.get("jti")
+            if not jti:
+                raise TokenInvalid("Refresh token missing 'jti' claim.", code="TOKEN_MISSING_JTI")
+            try:
+                uuid.UUID(jti)
+            except ValueError:
+                raise TokenInvalid("Invalid 'jti' format in refresh token.", code="TOKEN_INVALID_JTI")
+        
         return payload
-
+ 
     except jwt.ExpiredSignatureError:
-        raise TokenExpired() # Use default message/code
+        raise TokenExpired()
     except jwt.InvalidAudienceError:
         raise TokenInvalid("Invalid audience.", code="TOKEN_INVALID_AUDIENCE")
     except jwt.InvalidIssuerError:
         raise TokenInvalid("Invalid issuer.", code="TOKEN_INVALID_ISSUER")
     except jwt.MissingRequiredClaimError as e:
-        raise TokenInvalid(f"Missing required claim: {e}", code="TOKEN_MISSING_CLAIM")
+        # This will catch missing exp, iat, nbf, iss, aud, typ
+        # If 'sub' or 'jti' were the *only* missing standard claims PyJWT cared about,
+        # this logic might need adjustment, but our custom checks should handle them.
+        # The current `options["require"]` does not include sub or jti.
+        # So if this error is for sub/jti, it's unexpected PyJWT behavior.
+        # For now, map it to a generic missing claim.
+        # The custom checks for sub/jti should ideally be hit first if they are the issue.
+        # If PyJWT raises MissingRequiredClaimError for 'sub' or 'jti' despite them not being in options["require"],
+        # then our custom checks for TOKEN_MISSING_SUB/TOKEN_MISSING_JTI won't be reached.
+        # This change reorders checks to prioritize custom messages.
+        raise TokenInvalid(f"Token is missing a standard required claim: {e}", code="TOKEN_MISSING_STANDARD_CLAIM") # Changed code
     except jwt.DecodeError as e:
-        # More specific error for decoding issues (e.g., bad base64)
         raise TokenInvalid(f"Token decoding failed: {e}", code="TOKEN_DECODE_ERROR")
     except jwt.InvalidSignatureError as e:
          raise TokenInvalid(f"Token signature verification failed: {e}", code="TOKEN_SIGNATURE_INVALID")

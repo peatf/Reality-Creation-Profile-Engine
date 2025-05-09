@@ -8,8 +8,8 @@ from unittest.mock import AsyncMock, patch # For mocking kafka
 from .fixtures.sample_chart_payloads import payload_standard
 # from app.core.kafka_producer import CHART_CALCULATED_TOPIC # If running pytest from services/chart_calc
 import json # For creating cache key
-from app.core.cache import invalidate_cache_key # To ensure cache miss
-from app.schemas.request_schemas import CalculationRequest # To create cache key like in app
+from ..app.core.cache import invalidate_cache_key # Use relative import
+from ..app.schemas.request_schemas import CalculationRequest # Use relative import
 
 # If running pytest from project root:
 # from services.chart_calc.app.core.kafka_producer import CHART_CALCULATED_TOPIC
@@ -26,9 +26,9 @@ async def test_astrology_calculation_emits_kafka_event(test_client: AsyncClient,
 
     # Mock the send_kafka_message function in app.main where it's called
     # or directly in app.core.kafka_producer if preferred.
-    # Patching where it's looked up: app.main.send_kafka_message
+    # Patching where it's looked up: services.chart_calc.app.main.send_kafka_message
     mocked_send_kafka = mocker.patch(
-        "app.main.send_kafka_message", # Path to where send_kafka_message is IMPORTED and USED
+        "services.chart_calc.app.main.send_kafka_message", # Corrected path
         new_callable=AsyncMock # Use AsyncMock for async functions
     )
     # If send_kafka_message is directly from app.core.kafka_producer in main.py, then:
@@ -79,7 +79,7 @@ async def test_human_design_calculation_emits_kafka_event(test_client: AsyncClie
     payload = payload_standard.copy()
 
     mocked_send_kafka = mocker.patch(
-        "app.main.send_kafka_message", # Path to where send_kafka_message is IMPORTED and USED
+        "services.chart_calc.app.main.send_kafka_message", # Corrected path
         new_callable=AsyncMock
     )
 
@@ -123,7 +123,7 @@ async def test_kafka_emission_failure_does_not_fail_request(test_client: AsyncCl
 
     # Mock send_kafka_message to raise an exception
     mocked_send_kafka = mocker.patch(
-        "app.main.send_kafka_message",
+        "services.chart_calc.app.main.send_kafka_message", # Corrected path
         new_callable=AsyncMock,
         side_effect=Exception("Kafka is down!") # Simulate Kafka error
     )

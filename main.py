@@ -27,7 +27,9 @@ from src.synthesis import narrator as synthesis_narrator # Import narrator
 # Use absolute import from project root since 'services' is a top-level dir
 from services.typology_engine import scorer as assessment_scorer
 from src.messaging.kafka_client import send_event # Import Kafka client function
-from src.routers import typology as typology_router # Import the new typology router
+from src.routers import typology as typology_router
+from src.routers import auth as auth_router # Import the auth router
+from src.middleware.auth import AuthenticationMiddleware # Import the middleware
  
 # Configure logging VERY early
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -68,8 +70,33 @@ app.add_middleware(
     allow_methods=["*"],  # Allows all methods
     allow_headers=["*"],  # Allows all headers
 )
+
+# --- Authentication Middleware ---
+# Define excluded paths for auth middleware
+EXCLUDED_AUTH_PATHS = {
+    "/auth/login",
+    "/auth/register",
+    "/auth/token/refresh",
+    "/auth/password/forgot",
+    "/auth/password/reset",
+    "/", # Root path
+    "/health", # New health path
+    "/health/db",
+    "/health/cache",
+    "/docs",
+    "/openapi.json",
+    "/redoc",
+    # Add other public proxy paths if they don't require auth
+    "/astro",
+    "/human-design",
+}
+app.add_middleware(
+    AuthenticationMiddleware,
+    excluded_paths=EXCLUDED_AUTH_PATHS
+)
  
 # --- Include Routers ---
+app.include_router(auth_router.router) # Add the auth router
 app.include_router(typology_router.router, prefix="/api/v1", tags=["typology"])
  
 # --- Database Dependency ---
@@ -92,17 +119,27 @@ def get_db():
 # -------------------------
 
 @app.get("/", tags=["Health Check"])
-async def read_root():
+async def read_root_deprecated():
     """
-    Root endpoint for basic health check.
+    Root endpoint, now deprecated in favor of /health.
+    Returns a simple status for backward compatibility with tests.
     """
-    logger.info("--- main.py: Root endpoint '/' accessed ---")
-    # Send an event to Kafka
-    event_payload = {"status": "ok", "endpoint": "/", "timestamp": str(datetime.utcnow())}
-    send_event("test-events", event_payload)
-    logger.info(f"Sent event to Kafka topic 'test-events': {event_payload}")
-    return {"status": "ok", "message": "Reality Creation Profile Engine is running.", "event_sent": True}
+    logger.info("--- main.py: Root endpoint '/' accessed (deprecated) ---")
+    return {"status": "ok", "message": "Reality Creation Profile Engine is running. This root endpoint is deprecated, please use /health."}
 
+@app.get("/health", tags=["Health Check"]) # New primary health endpoint
+async def health_check_main():
+    """
+    Primary health check endpoint.
+    """
+    logger.info("--- main.py: Health endpoint '/health' accessed ---")
+    # Optionally send an event or perform more checks
+    event_payload = {"status": "ok", "endpoint": "/health", "timestamp": str(datetime.utcnow())}
+    # Consider if sending Kafka event on every /health call is too noisy
+    # send_event("health-checks", event_payload)
+    # logger.info(f"Sent event to Kafka topic 'health-checks': {event_payload}")
+    return {"status": "ok", "message": "Reality Creation Profile Engine is running."}
+ 
 @app.get("/health/db", tags=["Health Check"])
 async def health_check_db(db: Session = Depends(get_db)):
     """

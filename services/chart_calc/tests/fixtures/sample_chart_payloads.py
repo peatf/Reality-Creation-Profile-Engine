@@ -5,7 +5,9 @@ payload_standard = {
     "birth_date": "1990-07-15",
     "birth_time": "10:30:00", # Assuming UTC
     "latitude": 34.0522,    # Los Angeles, CA
-    "longitude": -118.2437
+    "longitude": -118.2437,
+    "city_of_birth": "Los Angeles",
+    "country_of_birth": "USA"
 }
 
 # Leap day case
@@ -13,7 +15,9 @@ payload_leap_day = {
     "birth_date": "1992-02-29",
     "birth_time": "01:15:00", # Assuming UTC
     "latitude": 51.5074,    # London, UK
-    "longitude": 0.1278
+    "longitude": 0.1278,
+    "city_of_birth": "London",
+    "country_of_birth": "UK"
 }
 
 # Southern Hemisphere case
@@ -21,7 +25,9 @@ payload_southern_hemisphere = {
     "birth_date": "1985-12-01",
     "birth_time": "23:55:00", # Assuming UTC
     "latitude": -33.8688,   # Sydney, Australia
-    "longitude": 151.2093
+    "longitude": 151.2093,
+    "city_of_birth": "Sydney",
+    "country_of_birth": "Australia"
 }
 
 # Extreme latitude (North)
@@ -29,7 +35,9 @@ payload_extreme_north = {
     "birth_date": "2000-06-21",
     "birth_time": "12:00:00", # Assuming UTC
     "latitude": 80.0000,    # Arctic region
-    "longitude": 0.0000
+    "longitude": 0.0000,
+    "city_of_birth": "North Pole",
+    "country_of_birth": "Arctic"
 }
 
 # Extreme latitude (South) - Note: Skyfield might have limitations or specific behaviors
@@ -38,7 +46,9 @@ payload_extreme_south = {
     "birth_date": "2001-12-21",
     "birth_time": "00:00:00", # Assuming UTC
     "latitude": -80.0000,   # Antarctic region
-    "longitude": 0.0000
+    "longitude": 0.0000,
+    "city_of_birth": "South Pole",
+    "country_of_birth": "Antarctica"
 }
 
 # Case with birth time near midnight
@@ -46,14 +56,18 @@ payload_midnight_transition = {
     "birth_date": "1995-03-10",
     "birth_time": "00:01:30", # Assuming UTC, just after midnight
     "latitude": 40.7128,    # New York, NY
-    "longitude": -74.0060
+    "longitude": -74.0060,
+    "city_of_birth": "New York",
+    "country_of_birth": "USA"
 }
 
 payload_before_midnight_transition = {
     "birth_date": "1995-03-09", # Day before
     "birth_time": "23:58:30", # Assuming UTC, just before midnight
     "latitude": 40.7128,    # New York, NY
-    "longitude": -74.0060
+    "longitude": -74.0060,
+    "city_of_birth": "New York",
+    "country_of_birth": "USA"
 }
 
 
@@ -62,27 +76,35 @@ payload_invalid_date = {
     "birth_date": "1990-13-01", # Invalid month
     "birth_time": "10:30:00",
     "latitude": 34.0522,
-    "longitude": -118.2437
+    "longitude": -118.2437,
+    "city_of_birth": "Test City",
+    "country_of_birth": "Test Country"
 }
 
 payload_invalid_time = {
     "birth_date": "1990-01-01",
     "birth_time": "25:30:00", # Invalid hour
     "latitude": 34.0522,
-    "longitude": -118.2437
+    "longitude": -118.2437,
+    "city_of_birth": "Test City",
+    "country_of_birth": "Test Country"
 }
 
 payload_invalid_latitude = {
     "birth_date": "1990-01-01",
     "birth_time": "10:30:00",
     "latitude": 91.0, # Invalid latitude
-    "longitude": -118.2437
+    "longitude": -118.2437,
+    "city_of_birth": "Test City",
+    "country_of_birth": "Test Country"
 }
 
 payload_missing_field = { # Example: missing birth_time
     "birth_date": "1990-01-01",
     "latitude": 34.0522,
-    "longitude": -118.2437
+    "longitude": -118.2437,
+    "city_of_birth": "Test City", # Added for completeness, though test might focus on missing time
+    "country_of_birth": "Test Country"
 }
 
 # List of valid payloads for parameterized tests

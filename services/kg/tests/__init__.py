@@ -1,0 +1,1 @@
+# This file makes 'tests' under 'kg' a package.

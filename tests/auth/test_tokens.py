@@ -12,11 +12,12 @@ from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 
 # Modules to test
-from src.auth import jwt as jwt_utils
+from src.auth import jwt as jwt_utils # Alias for the module
 from src.auth import crypto
+# Import functions directly for convenience, but be mindful of reloads for classes/exceptions
 from src.auth.jwt import (
-    TokenExpired, TokenInvalid, TokenError,
     create_access_token, create_refresh_token, decode_and_validate
+    # TokenExpired, TokenInvalid, TokenError will be accessed via jwt_utils after reload
 )
 from src.auth.crypto import hash_password, verify_password
 
@@ -135,18 +136,19 @@ def test_decode_token_expired(sample_user_id, sample_tier):
     token = create_access_token(user_id=sample_user_id, tier=sample_tier)
     # Wait for token to expire (JWT_ACCESS_TTL_SECONDS = 10)
     time.sleep(11)
-    with pytest.raises(TokenExpired):
+    # Access TokenExpired from the reloaded jwt_utils module
+    with pytest.raises(jwt_utils.TokenExpired):
         decode_and_validate(token=token, expected_type="access")
 
 def test_decode_token_wrong_type(sample_user_id, sample_tier, sample_token_id):
     """Test that decoding with the wrong expected type raises TokenInvalid."""
     access_token = create_access_token(user_id=sample_user_id, tier=sample_tier)
     refresh_token = create_refresh_token(user_id=sample_user_id, tier=sample_tier, token_id=sample_token_id)
-
-    with pytest.raises(TokenInvalid, match="Invalid token type. Expected 'refresh'"):
+ 
+    with pytest.raises(jwt_utils.TokenInvalid, match="Invalid token type. Expected 'refresh'"):
         decode_and_validate(token=access_token, expected_type="refresh")
-
-    with pytest.raises(TokenInvalid, match="Invalid token type. Expected 'access'"):
+ 
+    with pytest.raises(jwt_utils.TokenInvalid, match="Invalid token type. Expected 'access'"):
         decode_and_validate(token=refresh_token, expected_type="access")
 
 def test_decode_token_invalid_signature(sample_user_id, sample_tier, test_keys):
@@ -155,10 +157,10 @@ def test_decode_token_invalid_signature(sample_user_id, sample_tier, test_keys):
     header, payload, sig = token.split('.')
     # Tamper with the payload slightly
     tampered_token = f"{header}.{payload}tampered.{sig}"
-
-    with pytest.raises(TokenInvalid, match="Token decoding failed"): # PyJWT raises DecodeError first
+ 
+    with pytest.raises(jwt_utils.TokenInvalid, match="Token decoding failed"): # PyJWT raises DecodeError first
         decode_and_validate(token=tampered_token, expected_type="access")
-
+ 
     # Test with a token signed by a different key
     wrong_private_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
     wrong_pem_private = wrong_private_key.private_bytes(
@@ -176,11 +178,11 @@ def test_decode_token_invalid_signature(sample_user_id, sample_tier, test_keys):
     wrong_sig_token = jwt.encode(
         payload_data, wrong_pem_private, algorithm="RS256", headers={"kid": "test_public"}
     )
-
-    with pytest.raises(TokenInvalid, match="Token signature verification failed"):
+ 
+    with pytest.raises(jwt_utils.TokenInvalid, match="Token signature verification failed"):
         decode_and_validate(token=wrong_sig_token, expected_type="access")
-
-
+ 
+ 
 def test_decode_token_missing_claim(sample_user_id, sample_tier, test_keys):
     """Test decoding a token missing a required claim raises TokenInvalid."""
     # Manually craft a token missing 'tier'
@@ -201,9 +203,13 @@ def test_decode_token_missing_claim(sample_user_id, sample_tier, test_keys):
     )
 
     # PyJWT's decode checks required claims specified in options
-    with pytest.raises(TokenInvalid, match="Token is missing required claims"):
+    # The custom exception mapping in jwt_utils.decode_and_validate for MissingRequiredClaimError
+    # should result in TokenInvalid with code TOKEN_MISSING_STANDARD_CLAIM
+    with pytest.raises(jwt_utils.TokenInvalid) as exc_info:
         decode_and_validate(token=token, expected_type="access")
+    assert exc_info.value.code == "TOKEN_MISSING_STANDARD_CLAIM" # Check specific code
 
+ 
 def test_decode_refresh_token_missing_jti(sample_user_id, sample_tier, test_keys):
     """Test decoding a refresh token missing 'jti' raises TokenInvalid."""
     now = datetime.now(timezone.utc)
@@ -221,10 +227,12 @@ def test_decode_refresh_token_missing_jti(sample_user_id, sample_tier, test_keys
     token = jwt.encode(
         payload_data, private_key, algorithm="RS256", headers={"kid": "test_public"}
     )
-
-    with pytest.raises(TokenInvalid, match="Refresh token missing 'jti' claim"):
+    # This should now hit the custom TOKEN_MISSING_JTI
+    with pytest.raises(jwt_utils.TokenInvalid) as exc_info:
         decode_and_validate(token=token, expected_type="refresh")
+    assert exc_info.value.code == "TOKEN_MISSING_JTI"
 
+ 
 def test_decode_token_invalid_sub_format(sample_tier, test_keys):
     """Test decoding a token with invalid 'sub' format raises TokenInvalid."""
     now = datetime.now(timezone.utc)
@@ -241,11 +249,13 @@ def test_decode_token_invalid_sub_format(sample_tier, test_keys):
     token = jwt.encode(
         payload_data, private_key, algorithm="RS256", headers={"kid": "test_public"}
     )
-
-    with pytest.raises(TokenInvalid, match="Invalid 'sub' format in token"):
+ 
+    with pytest.raises(jwt_utils.TokenInvalid) as exc_info:
         decode_and_validate(token=token, expected_type="access")
+    assert exc_info.value.code == "TOKEN_INVALID_SUB"
 
-
+ 
+ 
 # --- Crypto Tests ---
 
 def test_hash_password_success():

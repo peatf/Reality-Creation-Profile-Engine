@@ -100,6 +100,45 @@ async def execute_write_query(query: str, parameters: Optional[Dict[str, Any]] =
             raise DAOException(f"An unexpected error occurred: {e}") from e
 
 
+async def execute_merge_query(
+    query: str,
+    parameters: Optional[Dict[str, Any]] = None,
+    *,
+    fetch_one: bool = True # If true, expects and returns a single record, else returns None (summary only)
+) -> Optional[Dict[str, Any]]:
+    """
+    Executes a MERGE Cypher query within a transaction, designed for idempotent operations.
+    Returns the first record if fetch_one is True and a record is returned by the query, otherwise None.
+    """
+    driver = await Neo4jDatabase.get_async_driver()
+    async with await get_async_db_session(driver) as session:
+        try:
+            async def _query_tx(tx: AsyncTransaction):
+                result_cursor = await tx.run(query, parameters)
+                if fetch_one:
+                    return await result_cursor.single()
+                else:
+                    await result_cursor.consume() # Consume if we only care about the summary/success
+                    return None
+
+            record = await session.execute_write(_query_tx)
+            return dict(record) if record else None
+        except ConstraintError as e: # Should be less common with MERGE if used correctly, but possible
+            logger.warning(f"Neo4j constraint violation during MERGE: {query} | params: {parameters} | error: {e}")
+            if "already exists with label" in str(e) or "already exists with node" in str(e):
+                raise UniqueConstraintViolationError(original_exception=e) from e
+            raise DAOException(f"Constraint violation: {e}") from e
+        except (ServiceUnavailable, TransientError) as e:
+            logger.error(f"Neo4j transient error during MERGE: {query} | params: {parameters} | error: {e}", exc_info=True)
+            raise DAOException(f"Database service unavailable or transient error: {e}") from e
+        except Neo4jError as e:
+            logger.error(f"Neo4j error during MERGE: {query} | params: {parameters} | error: {e}", exc_info=True)
+            raise DAOException(f"A Neo4j error occurred: {e}") from e
+        except Exception as e:
+            logger.error(f"Unexpected error during MERGE: {query} | params: {parameters} | error: {e}", exc_info=True)
+            raise DAOException(f"An unexpected error occurred: {e}") from e
+
+
 # Example of a more complex transaction function if needed
 async def execute_transaction_fn(
     transaction_work: Callable[[AsyncTransaction], Awaitable[Any]],

@@ -5,8 +5,12 @@ python-dotenv
 python-json-logger
 confluent-kafka[avro] # For Kafka client used by consumers (if needed by shared code)
 aiokafka # For async Kafka consumer implementation
+tenacity # For retry mechanisms
+fastapi
+uvicorn[standard] # ASGI server with standard dependencies
 
 # Testing Dependencies
 pytest
 pytest-asyncio
 pytest-mock
+pytest-docker

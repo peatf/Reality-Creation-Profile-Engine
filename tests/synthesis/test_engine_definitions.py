@@ -1,29 +1,28 @@
 # tests/synthesis/test_engine_definitions.py
 
 import pytest
-import os # For potential path debugging if needed
-from src.human_design.interpreter import HD_KNOWLEDGE_BASE, transform_knowledge_base, interpret_human_design_chart, AUTHORITY_MAPPING
+# import os # No longer needed for ENGINE_DEF_PATH
+from src.human_design.interpreter import transform_knowledge_base, interpret_human_design_chart, AUTHORITY_MAPPING
+# HD_KNOWLEDGE_BASE import removed from here, will be accessed via fixture or reloaded interpreter module
 from src.constants import KnowledgeBaseKeys
-import json
-
-# This path assumes tests are run from the project root directory
-# Adjust if your test runner has a different working directory.
-ENGINE_DEF_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', 'src', 'knowledge_graph', 'enginedef.json'))
-
+# import json # No longer needed for loading enginedef.json
+ 
+# ENGINE_DEF_PATH is no longer needed
+ 
 @pytest.fixture(scope="module")
 def loaded_engine_definitions():
     """
-    Fixture to load and transform the enginedef.json for tests.
-    This ensures tests run against the actual loaded data.
+    Fixture to provide a freshly loaded and transformed Human Design knowledge base for tests.
     """
-    try:
-        with open(ENGINE_DEF_PATH, 'r', encoding='utf-8') as f:
-            raw_definitions = json.load(f)
-        return transform_knowledge_base(raw_definitions)
-    except FileNotFoundError:
-        pytest.fail(f"Test setup failed: enginedef.json not found at {ENGINE_DEF_PATH}")
-    except json.JSONDecodeError:
-        pytest.fail(f"Test setup failed: Could not parse enginedef.json at {ENGINE_DEF_PATH}")
+    print("Fixture 'loaded_engine_definitions': Calling transform_knowledge_base() directly.")
+    kb = transform_knowledge_base()
+    # Perform a very basic check that kb is a dictionary and seems populated
+    if not isinstance(kb, dict) or not kb: # Check if it's a non-empty dict
+        pytest.fail(f"transform_knowledge_base() did not return a valid, non-empty dictionary. Type: {type(kb)}")
+    if not kb.get(KnowledgeBaseKeys.TYPES.value): # Specifically check for types, as it's fundamental
+         pytest.fail(f"Knowledge base from transform_knowledge_base() is missing '{KnowledgeBaseKeys.TYPES.value}'. KB keys: {list(kb.keys())}")
+    print(f"Fixture 'loaded_engine_definitions': transform_knowledge_base() returned KB with keys: {list(kb.keys())}")
+    return kb
 
 
 def test_hd_knowledge_base_centers_structure(loaded_engine_definitions):
@@ -74,17 +73,20 @@ def test_specific_center_content(loaded_engine_definitions):
     # Check Defined state for Head Center
     defined_head = head_center_data.get("Defined")
     assert defined_head is not None, "Defined state for Head Center not found"
-    assert defined_head.get("definition") == "When defined, your Head Center reliably channels inspiration without overwhelm." # Updated expected definition
+    # Updated expected definition to match centers.json content for the first "Head Center" entry
+    assert defined_head.get("definition") == "A fixed point of inspiration and mental pressure, generating consistent questions and ideas."
     assert isinstance(defined_head.get("role_in_manifestation"), str), "Role in manifestation for Defined Head should be a string"
-    assert defined_head.get("role_in_manifestation") == "Provides consistent mental pressure for ideas and clarity."
-
-
+    # Updated expected role to match centers.json content for the first "Head Center" entry
+    assert defined_head.get("role_in_manifestation") == "You emit a stable field of inquiry and abstract ideation. Reality reflects the nature of what you're consistently contemplating. Let thoughts arise from stillness rather than search. Your questions broadcast—they do not need validation. Ideas may manifest long after inception. Trust that the field holds what you've seeded. Let your steady curiosity shape the questions reality answers."
+ 
     # Check Undefined state for Head Center
     undefined_head = head_center_data.get("Undefined")
     assert undefined_head is not None, "Undefined state for Head Center not found"
-    assert undefined_head.get("definition") == "When undefined, you amplify others’ mental pressure and need to rest the mind."
+    # Updated expected definition to match centers.json content for the second "Head Center" entry
+    assert undefined_head.get("definition") == "An open portal for mental pressure, amplifying collective questions and inspirations."
     assert isinstance(undefined_head.get("role_in_manifestation"), str), "Role in manifestation for Undefined Head should be a string"
-    assert undefined_head.get("role_in_manifestation") == "Grants flexibility in thought but requires breaks to avoid burnout."
+    # Updated expected role to match centers.json content for the second "Head Center" entry
+    assert undefined_head.get("role_in_manifestation") == "You reflect and amplify the thoughts of others. Your field is impressionable to collective mental focus. Clarity comes from detaching from the need to answer every question. Let thoughtforms pass through. Not all inspirations are yours to act on. The delay reveals which ideas are aligned. Master discernment. Let thought move through you like wind, not fire."
 
 # You can add more tests for other centers or other parts of HD_KNOWLEDGE_BASE if needed.
 # For example, testing that other categories like Gates, Channels, Types are still populated.
@@ -114,32 +116,32 @@ def test_g_center_access_details_populated(loaded_engine_definitions):
     g_access_data = loaded_engine_definitions.get(KnowledgeBaseKeys.G_CENTER_ACCESS_DETAILS.value)
     assert g_access_data is not None, "G Center Access Details data is missing from HD_KNOWLEDGE_BASE"
     assert isinstance(g_access_data, dict), "G Center Access Details data should be a dictionary"
-    # Updated assertion: Expect G Center Access Details to be empty based on current enginedef.json
-    assert len(g_access_data) == 0, "G Center Access Details data should be empty for the current enginedef.json"
-
-    # The following checks for specific IDs are no longer valid as g_access_data is expected to be empty.
-    # Commenting them out.
-    # # Check for a specific known ID and its structure
-    # test_id_defined = "g_center_access_generator_defined"
-    # assert test_id_defined in g_access_data, f"ID '{test_id_defined}' missing from G Center Access Details"
-    #
-    # item_data_defined = g_access_data[test_id_defined]
-    # assert isinstance(item_data_defined, dict), f"Data for '{test_id_defined}' should be a dictionary"
-    # assert "subtype" in item_data_defined, f"'subtype' missing for '{test_id_defined}'"
-    # assert item_data_defined["subtype"] == "Generator Defined", f"Incorrect subtype for '{test_id_defined}'"
-    # assert "definition" in item_data_defined, f"'definition' missing for '{test_id_defined}'"
-    # assert "role_in_manifestation" in item_data_defined, f"'role_in_manifestation' missing for '{test_id_defined}'"
-    # assert item_data_defined.get("weighted_importance") == "contextual", f"Incorrect weighted_importance for '{test_id_defined}'"
-    #
-    # test_id_undefined = "g_center_access_projector_undefined"
-    # assert test_id_undefined in g_access_data, f"ID '{test_id_undefined}' missing from G Center Access Details"
-    # item_data_undefined = g_access_data[test_id_undefined]
-    # assert isinstance(item_data_undefined, dict), f"Data for '{test_id_undefined}' should be a dictionary"
-    # assert item_data_undefined.get("subtype") == "Projector Undefined", f"Incorrect subtype for '{test_id_undefined}'"
-    #
-    # # Check that there are multiple entries, e.g. for different types and states
-    # # Based on your provided snippet, there should be 10 such entries.
-    # assert len(g_access_data) >= 10, "Expected at least 10 G Center Access detail entries"
+    # g_center_access.json contains 9 entries.
+    assert len(g_access_data) == 9, f"Expected 9 G Center Access detail entries, found {len(g_access_data)}"
+ 
+    # Un-comment and adapt checks for specific IDs based on g_center_access.json
+    test_id_defined = "g_center_access_generator_defined"
+    assert test_id_defined in g_access_data, f"ID '{test_id_defined}' missing from G Center Access Details"
+    
+    item_data_defined = g_access_data[test_id_defined]
+    assert isinstance(item_data_defined, dict), f"Data for '{test_id_defined}' should be a dictionary"
+    assert "subtype" in item_data_defined, f"'subtype' missing for '{test_id_defined}'"
+    assert item_data_defined["subtype"] == "Generator Defined", f"Incorrect subtype for '{test_id_defined}'"
+    assert "definition" in item_data_defined, f"'definition' missing for '{test_id_defined}'"
+    assert "role_in_manifestation" in item_data_defined, f"'role_in_manifestation' missing for '{test_id_defined}'"
+    assert item_data_defined.get("weighted_importance") == "contextual", f"Incorrect weighted_importance for '{test_id_defined}'"
+    
+    test_id_undefined = "g_center_access_projector_undefined"
+    assert test_id_undefined in g_access_data, f"ID '{test_id_undefined}' missing from G Center Access Details"
+    item_data_undefined = g_access_data[test_id_undefined]
+    assert isinstance(item_data_undefined, dict), f"Data for '{test_id_undefined}' should be a dictionary"
+    assert item_data_undefined.get("subtype") == "Projector Undefined", f"Incorrect subtype for '{test_id_undefined}'"
+    
+    # Check another one for good measure
+    test_id_reflector = "g_center_access_reflector_undefined"
+    assert test_id_reflector in g_access_data, f"ID '{test_id_reflector}' missing from G Center Access Details"
+    item_data_reflector = g_access_data[test_id_reflector]
+    assert item_data_reflector.get("subtype") == "Reflector Undefined", f"Incorrect subtype for '{test_id_reflector}'"
 
 
 def test_new_hd_categories_populated(loaded_engine_definitions):

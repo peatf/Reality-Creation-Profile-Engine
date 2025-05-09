@@ -1,0 +1,1 @@
+# This file makes Python treat the 'astrology' directory (within tests) as a package.

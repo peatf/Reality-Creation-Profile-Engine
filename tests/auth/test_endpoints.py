@@ -22,7 +22,7 @@ from src.auth.refresh_token_store import (
 
 # Assume test_keys fixture is available (e.g., from conftest.py or imported)
 # Assume mock_jwt_env_vars and mock_crypto_env_vars are applied (e.g., via conftest.py autouse)
-# Assume client: AsyncClient, db_session: AsyncSession, redis_conn: aioredis.Redis fixtures are available
+# Assume api_client: AsyncClient, db_session: AsyncSession, redis_conn: aioredis.Redis fixtures are available
 
 pytestmark = pytest.mark.asyncio
 
@@ -42,10 +42,10 @@ async def create_test_user(
     await session.refresh(user)
     return user
 
-async def get_user_tokens(client: AsyncClient, email: str, password: str) -> dict:
+async def get_user_tokens(api_client: AsyncClient, email: str, password: str) -> dict: # Renamed client -> api_client
     """Helper to log in and get tokens."""
     login_data = {"email": email, "password": password}
-    response = await client.post("/auth/login", json=login_data)
+    response = await api_client.post("/auth/login", json=login_data) # Renamed client -> api_client
     response.raise_for_status() # Raise exception for non-2xx status
     return response.json()
 
@@ -53,13 +53,13 @@ async def get_user_tokens(client: AsyncClient, email: str, password: str) -> dic
 
 # === Registration Tests ===
 
-async def test_register_success(client: AsyncClient, db_session: AsyncSession):
+async def test_register_success(api_client: AsyncClient, db_session: AsyncSession): # Renamed client -> api_client
     """Test successful user registration."""
     email = f"test_user_{uuid.uuid4()}@example.com"
     password = "strongPassword123!"
     register_data = {"email": email, "password": password}
 
-    response = await client.post("/auth/register", json=register_data)
+    response = await api_client.post("/auth/register", json=register_data) # Renamed client -> api_client
 
     assert response.status_code == 201
     assert response.json()["message"] == "User registered successfully."
@@ -73,41 +73,41 @@ async def test_register_success(client: AsyncClient, db_session: AsyncSession):
     assert user.email == email.lower()
     assert user.tier == "free" # Default tier
 
-async def test_register_email_exists(client: AsyncClient, db_session: AsyncSession):
+async def test_register_email_exists(api_client: AsyncClient, db_session: AsyncSession): # Renamed client -> api_client
     """Test registration with an email that already exists."""
     user = await create_test_user(db_session, email="existing@example.com")
     register_data = {"email": user.email, "password": "newpassword"}
 
-    response = await client.post("/auth/register", json=register_data)
+    response = await api_client.post("/auth/register", json=register_data) # Renamed client -> api_client
 
     assert response.status_code == 409 # Conflict
     assert response.json()["detail"]["code"] == "REG_001"
     assert "already registered" in response.json()["detail"]["message"]
 
-async def test_register_invalid_email(client: AsyncClient):
+async def test_register_invalid_email(api_client: AsyncClient): # Renamed client -> api_client
     """Test registration with an invalid email format."""
     register_data = {"email": "invalid-email", "password": "password123"}
-    response = await client.post("/auth/register", json=register_data)
+    response = await api_client.post("/auth/register", json=register_data) # Renamed client -> api_client
     assert response.status_code == 400
     assert response.json()["detail"]["code"] == "REG_003"
 
-async def test_register_empty_password(client: AsyncClient):
+async def test_register_empty_password(api_client: AsyncClient): # Renamed client -> api_client
     """Test registration with an empty password."""
     register_data = {"email": "test@example.com", "password": ""}
-    response = await client.post("/auth/register", json=register_data)
+    response = await api_client.post("/auth/register", json=register_data) # Renamed client -> api_client
     assert response.status_code == 400
     assert response.json()["detail"]["code"] == "REG_002" # Error from hash_password
 
 # === Login Tests ===
 
-async def test_login_success(client: AsyncClient, db_session: AsyncSession, redis_conn: aioredis.Redis):
+async def test_login_success(api_client: AsyncClient, db_session: AsyncSession, redis_conn: aioredis.Redis): # Renamed client -> api_client
     """Test successful login and token generation."""
     email = "login_success@example.com"
     password = "password123"
     user = await create_test_user(db_session, email=email, password=password)
 
     login_data = {"email": email, "password": password}
-    response = await client.post("/auth/login", json=login_data)
+    response = await api_client.post("/auth/login", json=login_data) # Renamed client -> api_client
 
     assert response.status_code == 200
     tokens = response.json()
@@ -130,23 +130,23 @@ async def test_login_success(client: AsyncClient, db_session: AsyncSession, redi
     redis_key = get_refresh_token_key(user.id, token_id)
     assert await redis_conn.exists(redis_key)
 
-async def test_login_wrong_password(client: AsyncClient, db_session: AsyncSession):
+async def test_login_wrong_password(api_client: AsyncClient, db_session: AsyncSession): # Renamed client -> api_client
     """Test login attempt with incorrect password."""
     email = "wrong_pass@example.com"
     password = "password123"
     await create_test_user(db_session, email=email, password=password)
 
     login_data = {"email": email, "password": "wrongpassword"}
-    response = await client.post("/auth/login", json=login_data)
+    response = await api_client.post("/auth/login", json=login_data) # Renamed client -> api_client
 
     assert response.status_code == 401
     assert response.json()["detail"]["code"] == "AUTH_004"
     assert "Incorrect email or password" in response.json()["detail"]["message"]
 
-async def test_login_user_not_found(client: AsyncClient):
+async def test_login_user_not_found(api_client: AsyncClient): # Renamed client -> api_client
     """Test login attempt for a non-existent user."""
     login_data = {"email": "notfound@example.com", "password": "password123"}
-    response = await client.post("/auth/login", json=login_data)
+    response = await api_client.post("/auth/login", json=login_data) # Renamed client -> api_client
 
     assert response.status_code == 401 # Same error as wrong password
     assert response.json()["detail"]["code"] == "AUTH_004"
@@ -154,7 +154,7 @@ async def test_login_user_not_found(client: AsyncClient):
 # Note: Testing rate limiting requires careful timing or mocking Redis INCR.
 # Basic check: Ensure the endpoint exists and returns 429 eventually.
 # More robust tests might mock redis_conn.incr directly.
-async def test_login_rate_limit(client: AsyncClient, db_session: AsyncSession):
+async def test_login_rate_limit(api_client: AsyncClient, db_session: AsyncSession): # Renamed client -> api_client
     """Approximate test for login rate limiting (may be flaky without mocks)."""
     email = "rate_limit_user@example.com"
     password = "password123"
@@ -163,7 +163,7 @@ async def test_login_rate_limit(client: AsyncClient, db_session: AsyncSession):
 
     # Exceed limit (default 10 requests / 5 min)
     for _ in range(11):
-        response = await client.post("/auth/login", json=login_data)
+        response = await api_client.post("/auth/login", json=login_data) # Renamed client -> api_client
         # Allow successful logins until limit is hit
         if response.status_code == 429:
             break
@@ -179,12 +179,12 @@ async def test_login_rate_limit(client: AsyncClient, db_session: AsyncSession):
 
 # === Token Refresh Tests ===
 
-async def test_refresh_token_success(client: AsyncClient, db_session: AsyncSession, redis_conn: aioredis.Redis):
+async def test_refresh_token_success(api_client: AsyncClient, db_session: AsyncSession, redis_conn: aioredis.Redis): # Renamed client -> api_client
     """Test successful token refresh."""
     email = "refresh_user@example.com"
     password = "password123"
     user = await create_test_user(db_session, email=email, password=password)
-    initial_tokens = await get_user_tokens(client, email, password)
+    initial_tokens = await get_user_tokens(api_client, email, password) # Renamed client -> api_client
     initial_refresh_token = initial_tokens["refresh_token"]
 
     # Decode old refresh token to get its JTI
@@ -195,7 +195,7 @@ async def test_refresh_token_success(client: AsyncClient, db_session: AsyncSessi
     time.sleep(1)
 
     refresh_data = {"refresh_token": initial_refresh_token}
-    response = await client.post("/auth/token/refresh", json=refresh_data)
+    response = await api_client.post("/auth/token/refresh", json=refresh_data) # Renamed client -> api_client
 
     assert response.status_code == 200
     new_tokens = response.json()
@@ -223,35 +223,35 @@ async def test_refresh_token_success(client: AsyncClient, db_session: AsyncSessi
     new_redis_key = get_refresh_token_key(user.id, new_token_id)
     assert await redis_conn.exists(new_redis_key)
 
-async def test_refresh_token_invalid(client: AsyncClient):
+async def test_refresh_token_invalid(api_client: AsyncClient): # Renamed client -> api_client
     """Test refresh with an invalid token string."""
     refresh_data = {"refresh_token": "this.is.not.a.jwt"}
-    response = await client.post("/auth/token/refresh", json=refresh_data)
+    response = await api_client.post("/auth/token/refresh", json=refresh_data) # Renamed client -> api_client
     assert response.status_code == 401
     assert response.json()["detail"]["code"] == "TOKEN_DECODE_ERROR" # From jwt lib
 
-async def test_refresh_token_expired(client: AsyncClient, db_session: AsyncSession):
+async def test_refresh_token_expired(api_client: AsyncClient, db_session: AsyncSession): # Renamed client -> api_client
     """Test refresh with an expired refresh token."""
     email = "refresh_expired@example.com"
     password = "password123"
     await create_test_user(db_session, email=email, password=password)
-    tokens = await get_user_tokens(client, email, password)
+    tokens = await get_user_tokens(api_client, email, password) # Renamed client -> api_client
 
     # Wait for refresh token to expire (JWT_REFRESH_TTL_SECONDS = 20 in mock)
     time.sleep(21)
 
     refresh_data = {"refresh_token": tokens["refresh_token"]}
-    response = await client.post("/auth/token/refresh", json=refresh_data)
+    response = await api_client.post("/auth/token/refresh", json=refresh_data) # Renamed client -> api_client
     assert response.status_code == 401
     assert response.json()["detail"]["code"] == "AUTH_006" # Specific code for expired refresh
     assert "Refresh token has expired" in response.json()["detail"]["message"]
 
-async def test_refresh_token_revoked(client: AsyncClient, db_session: AsyncSession, redis_conn: aioredis.Redis):
+async def test_refresh_token_revoked(api_client: AsyncClient, db_session: AsyncSession, redis_conn: aioredis.Redis): # Renamed client -> api_client
     """Test refresh with a token whose JTI has been removed from Redis."""
     email = "refresh_revoked@example.com"
     password = "password123"
     user = await create_test_user(db_session, email=email, password=password)
-    tokens = await get_user_tokens(client, email, password)
+    tokens = await get_user_tokens(api_client, email, password) # Renamed client -> api_client
     refresh_token = tokens["refresh_token"]
 
     # Manually revoke the token by deleting its key from Redis
@@ -261,38 +261,38 @@ async def test_refresh_token_revoked(client: AsyncClient, db_session: AsyncSessi
     await redis_conn.delete(redis_key)
 
     refresh_data = {"refresh_token": refresh_token}
-    response = await client.post("/auth/token/refresh", json=refresh_data)
+    response = await api_client.post("/auth/token/refresh", json=refresh_data) # Renamed client -> api_client
     assert response.status_code == 401
     assert response.json()["detail"]["code"] == "AUTH_005" # Specific code for revoked/invalid JTI
     assert "invalid or has been revoked" in response.json()["detail"]["message"]
 
-async def test_refresh_token_used_twice(client: AsyncClient, db_session: AsyncSession):
+async def test_refresh_token_used_twice(api_client: AsyncClient, db_session: AsyncSession): # Renamed client -> api_client
     """Test attempting to use the same refresh token twice."""
     email = "refresh_reuse@example.com"
     password = "password123"
     await create_test_user(db_session, email=email, password=password)
-    tokens = await get_user_tokens(client, email, password)
+    tokens = await get_user_tokens(api_client, email, password) # Renamed client -> api_client
     refresh_token = tokens["refresh_token"]
 
     # First refresh (should succeed)
     refresh_data = {"refresh_token": refresh_token}
-    response1 = await client.post("/auth/token/refresh", json=refresh_data)
+    response1 = await api_client.post("/auth/token/refresh", json=refresh_data) # Renamed client -> api_client
     assert response1.status_code == 200
 
     # Second refresh with the *same* original token (should fail as it's revoked)
-    response2 = await client.post("/auth/token/refresh", json=refresh_data)
+    response2 = await api_client.post("/auth/token/refresh", json=refresh_data) # Renamed client -> api_client
     assert response2.status_code == 401
     assert response2.json()["detail"]["code"] == "AUTH_005" # Revoked
 
 # === Password Forgot/Reset Tests ===
 
-async def test_password_forgot_success(client: AsyncClient, db_session: AsyncSession, redis_conn: aioredis.Redis):
+async def test_password_forgot_success(api_client: AsyncClient, db_session: AsyncSession, redis_conn: aioredis.Redis): # Renamed client -> api_client
     """Test successful password forgot request."""
     email = "forgot_pass@example.com"
     user = await create_test_user(db_session, email=email)
 
     forgot_data = {"email": email}
-    response = await client.post("/auth/password/forgot", json=forgot_data)
+    response = await api_client.post("/auth/password/forgot", json=forgot_data) # Renamed client -> api_client
 
     assert response.status_code == 200
     assert "reset link has been sent" in response.json()["message"]
@@ -303,22 +303,22 @@ async def test_password_forgot_success(client: AsyncClient, db_session: AsyncSes
     # Alternative: Mock store_password_reset_token to capture the token
     # For now, we'll assume it worked based on the 200 OK and proceed to reset test
 
-async def test_password_forgot_email_not_found(client: AsyncClient):
+async def test_password_forgot_email_not_found(api_client: AsyncClient): # Renamed client -> api_client
     """Test password forgot for a non-existent email (should still return 200 OK)."""
     forgot_data = {"email": "not_a_user@example.com"}
-    response = await client.post("/auth/password/forgot", json=forgot_data)
+    response = await api_client.post("/auth/password/forgot", json=forgot_data) # Renamed client -> api_client
     assert response.status_code == 200
     assert "reset link has been sent" in response.json()["message"]
 
 # Rate limit test for forgot password (similar structure to login rate limit)
-async def test_password_forgot_rate_limit(client: AsyncClient, db_session: AsyncSession):
+async def test_password_forgot_rate_limit(api_client: AsyncClient, db_session: AsyncSession): # Renamed client -> api_client
     """Approximate test for password forgot rate limiting (3 req / hour)."""
     email = "forgot_rate_limit@example.com"
     await create_test_user(db_session, email=email)
     forgot_data = {"email": email}
 
     for i in range(4): # Limit is 3
-        response = await client.post("/auth/password/forgot", json=forgot_data)
+        response = await api_client.post("/auth/password/forgot", json=forgot_data) # Renamed client -> api_client
         if response.status_code == 429:
             break
         # time.sleep(0.01) # Small delay if needed
@@ -328,7 +328,7 @@ async def test_password_forgot_rate_limit(client: AsyncClient, db_session: Async
     assert response.status_code == 429
     assert response.json()["detail"]["code"] == "RATE_LIMIT_EXCEEDED"
 
-async def test_password_reset_success(client: AsyncClient, db_session: AsyncSession, redis_conn: aioredis.Redis):
+async def test_password_reset_success(api_client: AsyncClient, db_session: AsyncSession, redis_conn: aioredis.Redis): # Renamed client -> api_client
     """Test successful password reset flow."""
     email = "reset_pass_success@example.com"
     old_password = "oldPassword1"
@@ -343,7 +343,7 @@ async def test_password_reset_success(client: AsyncClient, db_session: AsyncSess
 
     # 2. Reset password using the token
     reset_data = {"reset_token": str(reset_token), "new_password": new_password}
-    response = await client.post("/auth/password/reset", json=reset_data)
+    response = await api_client.post("/auth/password/reset", json=reset_data) # Renamed client -> api_client
 
     assert response.status_code == 200
     assert response.json()["message"] == "Password has been reset successfully."
@@ -360,18 +360,18 @@ async def test_password_reset_success(client: AsyncClient, db_session: AsyncSess
 
     # 5. Verify login with new password works
     login_data = {"email": email, "password": new_password}
-    login_response = await client.post("/auth/login", json=login_data)
+    login_response = await api_client.post("/auth/login", json=login_data) # Renamed client -> api_client
     assert login_response.status_code == 200
 
-async def test_password_reset_invalid_token(client: AsyncClient):
+async def test_password_reset_invalid_token(api_client: AsyncClient): # Renamed client -> api_client
     """Test password reset with an invalid/non-existent token."""
     reset_data = {"reset_token": str(uuid.uuid4()), "new_password": "password123"}
-    response = await client.post("/auth/password/reset", json=reset_data)
+    response = await api_client.post("/auth/password/reset", json=reset_data) # Renamed client -> api_client
     assert response.status_code == 400
     assert response.json()["detail"]["code"] == "PWD_RESET_002"
     assert "invalid or has expired" in response.json()["detail"]["message"]
 
-async def test_password_reset_expired_token(client: AsyncClient, db_session: AsyncSession, redis_conn: aioredis.Redis):
+async def test_password_reset_expired_token(api_client: AsyncClient, db_session: AsyncSession, redis_conn: aioredis.Redis): # Renamed client -> api_client
     """Test password reset with an expired token."""
     email = "reset_pass_expired@example.com"
     user = await create_test_user(db_session, email=email)
@@ -382,11 +382,11 @@ async def test_password_reset_expired_token(client: AsyncClient, db_session: Asy
     time.sleep(2) # Wait for token to expire
 
     reset_data = {"reset_token": str(reset_token), "new_password": "password123"}
-    response = await client.post("/auth/password/reset", json=reset_data)
+    response = await api_client.post("/auth/password/reset", json=reset_data) # Renamed client -> api_client
     assert response.status_code == 400
     assert response.json()["detail"]["code"] == "PWD_RESET_002"
 
-async def test_password_reset_token_reuse(client: AsyncClient, db_session: AsyncSession, redis_conn: aioredis.Redis):
+async def test_password_reset_token_reuse(api_client: AsyncClient, db_session: AsyncSession, redis_conn: aioredis.Redis): # Renamed client -> api_client
     """Test attempting to reuse a password reset token."""
     email = "reset_pass_reuse@example.com"
     user = await create_test_user(db_session, email=email)
@@ -396,12 +396,12 @@ async def test_password_reset_token_reuse(client: AsyncClient, db_session: Async
 
     # First reset attempt (should succeed)
     reset_data = {"reset_token": str(reset_token), "new_password": "newPassword1"}
-    response1 = await client.post("/auth/password/reset", json=reset_data)
+    response1 = await api_client.post("/auth/password/reset", json=reset_data) # Renamed client -> api_client
     assert response1.status_code == 200
 
     # Second reset attempt with the same token (should fail)
     reset_data2 = {"reset_token": str(reset_token), "new_password": "newPassword2"}
-    response2 = await client.post("/auth/password/reset", json=reset_data2)
+    response2 = await api_client.post("/auth/password/reset", json=reset_data2) # Renamed client -> api_client
     assert response2.status_code == 400
     assert response2.json()["detail"]["code"] == "PWD_RESET_002" # Invalid/expired
 
@@ -411,87 +411,87 @@ async def test_password_reset_token_reuse(client: AsyncClient, db_session: Async
 # Example: Assuming a route @app.get("/protected/free") requires auth
 # and @app.get("/protected/premium") requires "premium" tier via Depends(require_tier("premium"))
 
-async def test_protected_route_no_token(client: AsyncClient):
+async def test_protected_route_no_token(api_client: AsyncClient): # Renamed client -> api_client
     """Test accessing protected route without token returns 401."""
-    response = await client.get("/protected/free") # Assuming this endpoint exists in test app
+    response = await api_client.get("/protected/free") # Assuming this endpoint exists in test app # Renamed client -> api_client
     assert response.status_code == 401
     assert response.json()["detail"]["code"] == "AUTH_001" # Missing credentials
     assert response.headers["www-authenticate"] == "Bearer"
 
-async def test_protected_route_invalid_token(client: AsyncClient):
+async def test_protected_route_invalid_token(api_client: AsyncClient): # Renamed client -> api_client
     """Test accessing protected route with invalid token returns 401."""
     headers = {"Authorization": "Bearer invalid.token.string"}
-    response = await client.get("/protected/free", headers=headers)
+    response = await api_client.get("/protected/free", headers=headers) # Renamed client -> api_client
     assert response.status_code == 401
     # Error code might vary depending on why it's invalid (e.g., TOKEN_DECODE_ERROR)
     assert response.json()["detail"]["code"].startswith("TOKEN_")
 
-async def test_protected_route_expired_token(client: AsyncClient, db_session: AsyncSession):
+async def test_protected_route_expired_token(api_client: AsyncClient, db_session: AsyncSession): # Renamed client -> api_client
     """Test accessing protected route with expired access token returns 401."""
     email = "expired_access@example.com"
     password = "password123"
     await create_test_user(db_session, email=email, password=password)
-    tokens = await get_user_tokens(client, email, password)
+    tokens = await get_user_tokens(api_client, email, password) # Renamed client -> api_client
     access_token = tokens["access_token"]
 
     # Wait for access token to expire (JWT_ACCESS_TTL_SECONDS = 10 in mock)
     time.sleep(11)
 
     headers = {"Authorization": f"Bearer {access_token}"}
-    response = await client.get("/protected/free", headers=headers)
+    response = await api_client.get("/protected/free", headers=headers) # Renamed client -> api_client
     assert response.status_code == 401
     assert response.json()["detail"]["code"] == "AUTH_002" # Expired token
     assert "Token has expired" in response.json()["detail"]["message"]
 
-async def test_protected_route_success(client: AsyncClient, db_session: AsyncSession):
+async def test_protected_route_success(api_client: AsyncClient, db_session: AsyncSession): # Renamed client -> api_client
     """Test successful access to a protected route with a valid token."""
     email = "valid_access@example.com"
     password = "password123"
     await create_test_user(db_session, email=email, password=password)
-    tokens = await get_user_tokens(client, email, password)
+    tokens = await get_user_tokens(api_client, email, password) # Renamed client -> api_client
     headers = {"Authorization": f"Bearer {tokens['access_token']}"}
 
-    response = await client.get("/protected/free", headers=headers)
+    response = await api_client.get("/protected/free", headers=headers) # Renamed client -> api_client
     assert response.status_code == 200 # Assuming /protected/free returns 200 OK
     # Add assertion for expected response body if applicable
     # assert response.json() == {"message": "Access granted for free tier"}
 
-async def test_tier_guard_insufficient_tier(client: AsyncClient, db_session: AsyncSession):
+async def test_tier_guard_insufficient_tier(api_client: AsyncClient, db_session: AsyncSession): # Renamed client -> api_client
     """Test accessing a premium route with a free user returns 403."""
     email = "free_user@example.com"
     password = "password123"
     # Ensure user is created with 'free' tier (default)
     await create_test_user(db_session, email=email, password=password, tier="free")
-    tokens = await get_user_tokens(client, email, password)
+    tokens = await get_user_tokens(api_client, email, password) # Renamed client -> api_client
     headers = {"Authorization": f"Bearer {tokens['access_token']}"}
 
-    response = await client.get("/protected/premium", headers=headers) # Requires premium
+    response = await api_client.get("/protected/premium", headers=headers) # Requires premium # Renamed client -> api_client
     assert response.status_code == 403 # Forbidden
     assert response.json()["detail"]["code"] == "AUTH_003"
     assert "Insufficient permissions" in response.json()["detail"]["message"]
 
-async def test_tier_guard_sufficient_tier(client: AsyncClient, db_session: AsyncSession):
+async def test_tier_guard_sufficient_tier(api_client: AsyncClient, db_session: AsyncSession): # Renamed client -> api_client
     """Test accessing a premium route with a premium user returns 200."""
     email = "premium_user@example.com"
     password = "password123"
     # Create user with 'premium' tier
     await create_test_user(db_session, email=email, password=password, tier="premium")
-    tokens = await get_user_tokens(client, email, password)
+    tokens = await get_user_tokens(api_client, email, password) # Renamed client -> api_client
     headers = {"Authorization": f"Bearer {tokens['access_token']}"}
 
-    response = await client.get("/protected/premium", headers=headers)
+    response = await api_client.get("/protected/premium", headers=headers) # Renamed client -> api_client
     assert response.status_code == 200 # Access granted
     # Add assertion for expected response body if applicable
     # assert response.json() == {"message": "Access granted for premium tier"}
 
-async def test_tier_guard_admin_access_premium(client: AsyncClient, db_session: AsyncSession):
+async def test_tier_guard_admin_access_premium(api_client: AsyncClient, db_session: AsyncSession): # Renamed client -> api_client
     """Test accessing a premium route with an admin user returns 200."""
     email = "admin_user@example.com"
     password = "password123"
     # Assuming 'admin' tier level is higher than 'premium'
     await create_test_user(db_session, email=email, password=password, tier="admin")
-    tokens = await get_user_tokens(client, email, password)
+    tokens = await get_user_tokens(api_client, email, password) # Renamed client -> api_client
     headers = {"Authorization": f"Bearer {tokens['access_token']}"}
 
-    response = await client.get("/protected/premium", headers=headers)
+    response = await api_client.get("/protected/premium", headers=headers) # Renamed client -> api_client
     assert response.status_code == 200 # Access granted

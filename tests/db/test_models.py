@@ -198,8 +198,8 @@ async def test_typology_result_roundtrip(db_session: AsyncSession):
 
     generated_at_dt = datetime.now(timezone.utc)
     new_result = TypologyResult(
-        # id=profile.id, # PK is also FK, but let SA handle default UUID if not explicitly set
-        profile_id=profile.id, # Explicitly set FK
+        # The __init__ of TypologyResult takes profile_id and sets the 'id' field.
+        profile_id=profile.id,
         typology_name="TestType",
         confidence=Decimal("0.95"),
         raw_vector={"v1": 1.0},
@@ -211,12 +211,12 @@ async def test_typology_result_roundtrip(db_session: AsyncSession):
     await db_session.refresh(new_result)
 
     # Retrieve result
-    stmt = select(TypologyResult).where(TypologyResult.profile_id == profile.id)
+    stmt = select(TypologyResult).where(TypologyResult.id == profile.id) # Query by 'id' column
     result = await db_session.execute(stmt)
     retrieved_result = result.scalars().one()
-
+ 
     assert retrieved_result.id == new_result.id # Check assigned UUID PK
-    assert retrieved_result.profile_id == profile.id
+    assert retrieved_result.id == profile.id # 'id' is the foreign key to profile.id
     assert retrieved_result.typology_name == "TestType"
     assert retrieved_result.confidence == Decimal("0.95")
     assert retrieved_result.raw_vector == {"v1": 1.0}

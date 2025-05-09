@@ -2,6 +2,10 @@ import asyncio
 import logging
 import signal
 import os
+from contextlib import asynccontextmanager
+
+from fastapi import FastAPI, HTTPException, status
+from fastapi.responses import JSONResponse
 
 # Setup logging first
 from app.core.logging_config import setup_logging
@@ -12,53 +16,59 @@ from app.core.db import Neo4jDatabase
 from app.graph_schema.schema_setup import apply_schema
 from app.consumers.chart_consumer import ChartCalculatedConsumer
 from app.consumers.typology_consumer import TypologyAssessedConsumer
+from app.core.health_checks import check_neo4j_connection, check_kafka_connection # To be created
 
 logger = logging.getLogger(__name__)
 
-# List to keep track of running consumer tasks
-consumer_tasks = []
-stop_event = asyncio.Event()
+# Global state to hold consumers and tasks
+consumer_state = {
+    "chart_consumer": None,
+    "typology_consumer": None,
+    "chart_task": None,
+    "typology_task": None,
+}
 
-def handle_signal(sig, frame):
-    logger.info(f"Received signal {sig}, initiating graceful shutdown...")
-    stop_event.set()
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup logic
+    logger.info("KG Service starting up...")
 
-async def run_service():
-    """Initializes and runs the KG service components."""
-    logger.info("Starting KG Service...")
-
-    # Apply Neo4j schema (constraints/indexes) on startup
+    # Apply Neo4j schema
     try:
         await apply_schema()
     except Exception as e:
         logger.error(f"Failed to apply Neo4j schema on startup: {e}", exc_info=True)
-        # Depending on policy, might want to exit if schema setup fails
-        # raise SystemExit("Neo4j schema setup failed.") from e
+        # Decide if this is fatal. For now, we continue.
 
-    # Initialize consumers
-    chart_consumer = ChartCalculatedConsumer()
-    typology_consumer = TypologyAssessedConsumer()
+    # Initialize and start consumers
+    consumer_state["chart_consumer"] = ChartCalculatedConsumer()
+    consumer_state["typology_consumer"] = TypologyAssessedConsumer()
 
-    # Start consumers in background tasks
     logger.info("Starting Kafka consumers...")
-    chart_task = asyncio.create_task(chart_consumer.consume())
-    typology_task = asyncio.create_task(typology_consumer.consume())
-    consumer_tasks.extend([chart_task, typology_task])
+    consumer_state["chart_task"] = asyncio.create_task(consumer_state["chart_consumer"].consume())
+    consumer_state["typology_task"] = asyncio.create_task(consumer_state["typology_consumer"].consume())
 
-    # Keep running until stop signal is received
-    await stop_event.wait()
+    yield # Service runs here
 
-    # Initiate shutdown
-    logger.info("Stopping Kafka consumers...")
-    await chart_consumer.stop()
-    await typology_consumer.stop()
+    # Shutdown logic
+    logger.info("KG Service shutting down...")
+    
+    # Stop consumers
+    if consumer_state["chart_consumer"]:
+        logger.info("Stopping chart consumer...")
+        await consumer_state["chart_consumer"].stop()
+    if consumer_state["typology_consumer"]:
+        logger.info("Stopping typology consumer...")
+        await consumer_state["typology_consumer"].stop()
 
-    # Wait for tasks to finish
-    try:
-        await asyncio.wait_for(asyncio.gather(*consumer_tasks, return_exceptions=True), timeout=10.0)
-        logger.info("Consumer tasks finished.")
-    except asyncio.TimeoutError:
-        logger.warning("Consumer tasks did not finish within timeout during shutdown.")
+    # Wait for consumer tasks to finish
+    tasks = [t for t in [consumer_state["chart_task"], consumer_state["typology_task"]] if t]
+    if tasks:
+        try:
+            await asyncio.wait_for(asyncio.gather(*tasks, return_exceptions=True), timeout=10.0)
+            logger.info("Consumer tasks finished.")
+        except asyncio.TimeoutError:
+            logger.warning("Consumer tasks did not finish within timeout during shutdown.")
 
     # Close Neo4j driver
     logger.info("Closing Neo4j driver...")
@@ -66,16 +76,44 @@ async def run_service():
 
     logger.info("KG Service stopped gracefully.")
 
+# Create FastAPI app instance with lifespan manager
+app = FastAPI(title="Knowledge Graph Service", lifespan=lifespan)
 
-if __name__ == "__main__":
-    # Setup signal handlers for graceful shutdown
-    signal.signal(signal.SIGINT, handle_signal)
-    signal.signal(signal.SIGTERM, handle_signal)
+@app.get("/health", tags=["Health"])
+async def health_check():
+    """
+    Performs health checks on the service and its dependencies (Neo4j, Kafka).
+    Returns HTTP 200 if healthy, HTTP 503 if unhealthy.
+    """
+    neo4j_healthy = False
+    kafka_healthy = False
+    errors = []
 
     try:
-        asyncio.run(run_service())
+        neo4j_healthy = await check_neo4j_connection()
     except Exception as e:
-        logger.critical(f"KG Service encountered critical error: {e}", exc_info=True)
-        # Perform any final cleanup if possible
-        asyncio.run(Neo4jDatabase.close_async_driver()) # Attempt to close driver on critical error too
-        raise SystemExit(1) from e
+        logger.error(f"Health check: Neo4j connection failed: {e}", exc_info=True)
+        errors.append(f"Neo4j connection error: {e}")
+
+    try:
+        kafka_healthy = await check_kafka_connection()
+    except Exception as e:
+        logger.error(f"Health check: Kafka connection failed: {e}", exc_info=True)
+        errors.append(f"Kafka connection error: {e}")
+
+    if neo4j_healthy and kafka_healthy:
+        return {"status": "ok", "dependencies": {"neo4j": "ok", "kafka": "ok"}}
+    else:
+        status_code = status.HTTP_503_SERVICE_UNAVAILABLE
+        details = {
+            "status": "unhealthy",
+            "dependencies": {
+                "neo4j": "ok" if neo4j_healthy else "unhealthy",
+                "kafka": "ok" if kafka_healthy else "unhealthy",
+            },
+            "errors": errors
+        }
+        return JSONResponse(content=details, status_code=status_code)
+
+# Remove old __main__ block if it exists
+# The application will be run using Uvicorn, e.g., `uvicorn main:app --reload`

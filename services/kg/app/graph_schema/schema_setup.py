@@ -16,41 +16,33 @@ logger = logging.getLogger(__name__)
 
 CONSTRAINTS = [
     # Person Node Constraints
-    f"CREATE CONSTRAINT IF NOT EXISTS FOR (p:{PERSON_LABEL}) REQUIRE p.user_id IS UNIQUE", # Removed name
+    f"CREATE CONSTRAINT IF NOT EXISTS FOR (p:{PERSON_LABEL}) REQUIRE p.user_id IS UNIQUE",
 
-    # AstroFeature Node Constraints (name should be unique within its feature_type)
-    # Neo4j doesn't directly support uniqueness constraints on a combination of properties out-of-the-box for all versions/setups without workarounds.
-    # A common approach is to create a composite key or ensure uniqueness at the application layer.
-    # For simplicity, we'll create a unique constraint on 'name' if it's globally unique,
-    # or an index if uniqueness is per type (application-enforced).
-    # Assuming 'name' for AstroFeature should be globally unique for now. If not, this should be an INDEX.
-    f"CREATE CONSTRAINT IF NOT EXISTS FOR (af:{ASTROFEATURE_LABEL}) REQUIRE af.name IS UNIQUE", # Removed name
+    # AstroFeature Node Constraints: Uniqueness for (name, feature_type) handled at application layer.
+    # No direct composite constraint in Cypher without workarounds like concatenated properties.
 
-    # HDFeature Node Constraints (similar to AstroFeature)
-    f"CREATE CONSTRAINT IF NOT EXISTS FOR (hf:{HDFEATURE_LABEL}) REQUIRE hf.name IS UNIQUE", # Removed name
+    # HDFeature Node Constraints: Uniqueness for (name, feature_type) handled at application layer.
 
     # TypologyResult Node Constraints
     # An assessment_id should be unique.
-    f"CREATE CONSTRAINT IF NOT EXISTS FOR (tr:{TYPOLOGYRESULT_LABEL}) REQUIRE tr.assessment_id IS UNIQUE", # Removed name
+    f"CREATE CONSTRAINT IF NOT EXISTS FOR (tr:{TYPOLOGYRESULT_LABEL}) REQUIRE tr.assessment_id IS UNIQUE",
 ]
 
 INDEXES = [
     # Person Node Indexes (user_id is already indexed by unique constraint)
-    f"CREATE INDEX IF NOT EXISTS FOR (p:{PERSON_LABEL}) ON (p.profile_id)", # Removed name
-    f"CREATE INDEX IF NOT EXISTS FOR (p:{PERSON_LABEL}) ON (p.name)", # Removed name, If searching by name is common
+    f"CREATE INDEX IF NOT EXISTS FOR (p:{PERSON_LABEL}) ON (p.profile_id)",
+    f"CREATE INDEX IF NOT EXISTS FOR (p:{PERSON_LABEL}) ON (p.name)", # If searching by name is common
 
-    # AstroFeature Node Indexes (name is indexed by unique constraint if globally unique)
-    f"CREATE INDEX IF NOT EXISTS FOR (af:{ASTROFEATURE_LABEL}) ON (af.feature_type)", # Removed name
-    # If 'name' is not globally unique, but unique per 'feature_type', then remove constraint and add:
-    # f"CREATE INDEX IF NOT EXISTS FOR (af:{ASTROFEATURE_LABEL}) ON (af.name)", # Removed name
+    # AstroFeature Node Indexes
+    f"CREATE INDEX IF NOT EXISTS FOR (af:{ASTROFEATURE_LABEL}) ON (af.feature_type)",
+    f"CREATE INDEX IF NOT EXISTS FOR (af:{ASTROFEATURE_LABEL}) ON (af.name)", # For querying by name
 
-    # HDFeature Node Indexes (name is indexed by unique constraint if globally unique)
-    f"CREATE INDEX IF NOT EXISTS FOR (hf:{HDFEATURE_LABEL}) ON (hf.feature_type)", # Removed name
-    # If 'name' is not globally unique:
-    # f"CREATE INDEX IF NOT EXISTS FOR (hf:{HDFEATURE_LABEL}) ON (hf.name)", # Removed name
+    # HDFeature Node Indexes
+    f"CREATE INDEX IF NOT EXISTS FOR (hf:{HDFEATURE_LABEL}) ON (hf.feature_type)",
+    f"CREATE INDEX IF NOT EXISTS FOR (hf:{HDFEATURE_LABEL}) ON (hf.name)", # For querying by name
 
     # TypologyResult Node Indexes (assessment_id is indexed by unique constraint)
-    f"CREATE INDEX IF NOT EXISTS FOR (tr:{TYPOLOGYRESULT_LABEL}) ON (tr.typology_name)", # Removed name
+    f"CREATE INDEX IF NOT EXISTS FOR (tr:{TYPOLOGYRESULT_LABEL}) ON (tr.typology_name)",
     # Add index on user_id if direct lookups on TypologyResult by user_id are needed,
     # though typically this would be found via Person-(HAS_TYPOLOGY_RESULT)->TypologyResult
     # f"CREATE INDEX IF NOT EXISTS typologyresult_user_id_idx FOR (tr:{TYPOLOGYRESULT_LABEL}) ON (tr.user_id)",

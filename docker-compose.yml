@@ -117,7 +117,7 @@ services:
       dockerfile: Dockerfile
     command: ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
     environment:
-      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/reality_core
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/reality_core
       REDIS_URL: redis://redis:6379/0
       KAFKA_BOOTSTRAP: kafka:9092
       SCHEMA_REGISTRY_URL: http://schema-registry:8081
@@ -191,6 +191,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+    working_dir: /app # Explicitly set working directory
       # No target needed, uses the default build which includes deps
     command: ["sh", "-c", "echo '--- Environment Variables ---' && printenv | grep JWT && printenv | grep PYTHONPATH && echo '--- Running Pytest ---' && python3 -m pytest"]
     environment:
@@ -207,7 +208,7 @@ services:
       # POSTGRES_USER: ${POSTGRES_USER}
       # POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       # NEO4J_PASSWORD: ${NEO4J_PASSWORD}
-      PYTHONPATH: /app # Ensure src is importable
+      PYTHONPATH: "/app:/app/src" # Set PYTHONPATH as recommended
       TEST_DEBUG_VAR: "HelloFromTestService"
       # Testcontainers configuration (Redis part removed)
     volumes:
@@ -220,6 +221,8 @@ services:
       schema-registry:
         condition: service_healthy
       # Add other dependencies if tests require them (e.g., postgres, redis)
+      api: # Add dependency on the main api service
+        condition: service_healthy
       # postgres:
       #   condition: service_healthy
       redis-test:

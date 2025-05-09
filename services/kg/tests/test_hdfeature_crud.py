@@ -1,192 +1,237 @@
 import pytest
 import pytest_asyncio
-from unittest.mock import MagicMock, patch, AsyncMock # Add AsyncMock
+from unittest.mock import patch, AsyncMock
+import json
 
 from services.kg.app.graph_schema.nodes import HDFeatureNode
 from services.kg.app.crud.hdfeature_crud import (
-    create_hdfeature,
-    get_hdfeature_by_name,
+    upsert_hdfeature,           # Changed
+    get_hdfeature_by_name_and_type, # Changed
     get_hdfeatures_by_type,
-    update_hdfeature,
+    update_hdfeature_properties, # Changed
     delete_hdfeature
 )
 from services.kg.app.crud.base_dao import (
-    NodeCreationError,
     NodeNotFoundError,
     UpdateError,
     DeletionError,
-    UniqueConstraintViolationError,
+    UniqueConstraintViolationError, # Should be rare with MERGE on logical key
     DAOException
 )
+from services.kg.app.graph_schema.constants import HDFEATURE_LABEL
 
-import json # Add json import
 
 # Sample HDFeature Data
-SAMPLE_HDFEATURE_RAW_DATA = {
-    "name": "Defined_Throat_Test",
-    "feature_type": "center",
-    "details": {"state": "Defined", "function": "Manifestation, communication"}
-}
-# Removed module-level instantiation causing collection error
-# SAMPLE_HDFEATURE_NODE = HDFeatureNode(**SAMPLE_HDFEATURE_MODEL_DATA)
+FEATURE_NAME = "Defined_Throat_Test"
+FEATURE_TYPE = "center"
+INITIAL_DETAILS_DICT = {"state": "Defined", "function": "Manifestation, communication"}
+INITIAL_DETAILS_JSON_STR = json.dumps(INITIAL_DETAILS_DICT)
 
 @pytest_asyncio.fixture
-async def sample_hdfeature_node_fixture():
-    # Create the model within the fixture, ensuring details are serialized
-    model_data = {
-         **SAMPLE_HDFEATURE_RAW_DATA,
-         "details": json.dumps(SAMPLE_HDFEATURE_RAW_DATA["details"])
+def sample_hdfeature_data() -> dict:
+    """Raw data for DB mock return, details as JSON string."""
+    return {
+        "name": FEATURE_NAME,
+        "feature_type": FEATURE_TYPE,
+        "details": INITIAL_DETAILS_JSON_STR # Stored as JSON string in DB
     }
-    return HDFeatureNode(**model_data)
 
+@pytest_asyncio.fixture
+def sample_hdfeature_node(sample_hdfeature_data: dict) -> HDFeatureNode:
+    """HDFeatureNode instance for passing to CRUD functions, details as dict."""
+    data_for_model = sample_hdfeature_data.copy()
+    data_for_model["details"] = json.loads(sample_hdfeature_data["details"])
+    return HDFeatureNode(**data_for_model)
+
+
+# --- upsert_hdfeature Tests ---
 @pytest.mark.asyncio
-async def test_create_hdfeature_success(mock_neo4j_driver, sample_hdfeature_node_fixture: HDFeatureNode):
-    mock_tx_run_result = mock_neo4j_driver["tx_run_result"]
-    # Mock DB returns properties as they would be stored (details as string)
-    mock_db_return_data = {
-        **SAMPLE_HDFEATURE_RAW_DATA,
-        "details": json.dumps(SAMPLE_HDFEATURE_RAW_DATA["details"])
-    }
-    mock_tx_run_result.single.return_value = {"hf": mock_db_return_data}
+async def test_upsert_hdfeature_create_success(mock_neo4j_session, sample_hdfeature_node: HDFeatureNode, sample_hdfeature_data: dict):
+    """Test successful creation of an HDFeatureNode via upsert_hdfeature."""
+    mock_cursor = mock_neo4j_session["cursor"]
+    mock_session_obj = mock_neo4j_session["session"]
+    mock_tx = mock_session_obj.execute_write.call_args[0][0].__self__
 
-    created_feature = await create_hdfeature(sample_hdfeature_node_fixture) # Pass the validated model
+    mock_cursor.single.return_value = {"hf": sample_hdfeature_data}
+
+    created_feature = await upsert_hdfeature(sample_hdfeature_node)
 
     assert created_feature is not None
-    assert created_feature.name == sample_hdfeature_node_fixture.name
-    assert created_feature.feature_type == sample_hdfeature_node_fixture.feature_type
-    mock_neo4j_driver["session"].execute_write.assert_called_once()
-
-@pytest.mark.asyncio
-async def test_create_hdfeature_already_exists(mock_neo4j_driver, sample_hdfeature_node_fixture: HDFeatureNode):
-    mock_session = mock_neo4j_driver["session"]
-    mock_session.execute_write.side_effect = UniqueConstraintViolationError("HDFeature already exists")
-
-    with pytest.raises(NodeCreationError, match="already exists"):
-        await create_hdfeature(sample_hdfeature_node_fixture)
-
-@pytest.mark.asyncio
-async def test_create_hdfeature_dao_exception(mock_neo4j_driver, sample_hdfeature_node_fixture: HDFeatureNode):
-    mock_session = mock_neo4j_driver["session"]
-    mock_session.execute_write.side_effect = DAOException("Generic DB error")
-
-    with pytest.raises(NodeCreationError, match="Database error creating HDFeature"):
-        await create_hdfeature(sample_hdfeature_node_fixture)
+    assert created_feature.name == FEATURE_NAME
+    assert created_feature.feature_type == FEATURE_TYPE
+    assert created_feature.details == INITIAL_DETAILS_DICT
+    
+    mock_session_obj.execute_write.assert_called_once()
+    
+    called_query = mock_tx.run.call_args[0][0]
+    assert f"MERGE (hf:{HDFEATURE_LABEL} {{name: $name, feature_type: $feature_type}})" in called_query
+    assert "ON CREATE SET hf = $create_props" in called_query
+    assert "ON MATCH SET hf += $match_props" in called_query
+    
+    call_params = mock_tx.run.call_args[0][1]
+    assert call_params["name"] == FEATURE_NAME
+    assert call_params["feature_type"] == FEATURE_TYPE
+    assert call_params["create_props"]["details"] == INITIAL_DETAILS_DICT
+    assert call_params["match_props"]["details"] == INITIAL_DETAILS_DICT
 
 
 @pytest.mark.asyncio
-async def test_get_hdfeature_by_name_found(mock_neo4j_driver, sample_hdfeature_node_fixture: HDFeatureNode):
-    mock_tx_run_result = mock_neo4j_driver["tx_run_result"]
-    # Assume DB returns properties with details as string
-    mock_db_return_data = {
-        **SAMPLE_HDFEATURE_RAW_DATA,
-        "details": json.dumps(SAMPLE_HDFEATURE_RAW_DATA["details"])
+async def test_upsert_hdfeature_update_success(mock_neo4j_session, sample_hdfeature_node: HDFeatureNode):
+    mock_cursor = mock_neo4j_session["cursor"]
+    mock_session_obj = mock_neo4j_session["session"]
+    mock_tx = mock_session_obj.execute_write.call_args[0][0].__self__
+
+    updated_details_dict = {"state": "Defined", "function": "Manifestation & Metamorphosis", "voice": "I speak"}
+    
+    updated_node_input = sample_hdfeature_node.model_copy(update={"details": updated_details_dict})
+
+    db_return_data = {
+        "name": FEATURE_NAME,
+        "feature_type": FEATURE_TYPE,
+        "details": json.dumps(updated_details_dict)
     }
-    mock_tx_run_result.data.return_value = [{"hf": mock_db_return_data}]
+    mock_cursor.single.return_value = {"hf": db_return_data}
 
-    retrieved_feature = await get_hdfeature_by_name(sample_hdfeature_node_fixture.name)
+    # --- Act ---
+    updated_feature = await upsert_hdfeature(updated_node_input)
 
-    assert retrieved_feature is not None
-    assert retrieved_feature.name == sample_hdfeature_node_fixture.name
-    mock_neo4j_driver["session"].execute_read.assert_called_once()
+    # --- Assert ---
+    assert updated_feature is not None
+    assert updated_feature.name == FEATURE_NAME
+    assert updated_feature.feature_type == FEATURE_TYPE
+    assert updated_feature.details == updated_details_dict
+
+    # Assert mock calls *after* the function call
+    mock_session_obj.execute_write.assert_called_once()
+    mock_tx.run.assert_called_once()
+    call_params = mock_tx.run.call_args[0][1]
+    assert call_params["match_props"]["details"] == updated_details_dict
+
 
 @pytest.mark.asyncio
-async def test_get_hdfeature_by_name_not_found(mock_neo4j_driver):
-    mock_tx_run_result = mock_neo4j_driver["tx_run_result"]
-    mock_tx_run_result.data.return_value = []
+async def test_upsert_hdfeature_dao_exception(mock_neo4j_session, sample_hdfeature_node: HDFeatureNode):
+    mock_session_obj = mock_neo4j_session["session"]
+    mock_session_obj.execute_write.side_effect = DAOException("Generic DB error for upsert hd")
 
-    retrieved_feature = await get_hdfeature_by_name("Non_Existent_HD_Feature")
+    with pytest.raises(DAOException, match="Database error upserting HDFeature"):
+        await upsert_hdfeature(sample_hdfeature_node)
+
+# --- get_hdfeature_by_name_and_type Tests ---
+@pytest.mark.asyncio
+async def test_get_hdfeature_by_name_and_type_found(mock_neo4j_session, sample_hdfeature_data: dict):
+    mock_cursor = mock_neo4j_session["cursor"]
+    mock_session_obj = mock_neo4j_session["session"]
+    mock_tx = mock_neo4j_session["tx"] # Get mock_tx from the fixture yield
+
+    mock_cursor.data.return_value = [{"hf": sample_hdfeature_data}]
+
+    # --- Act ---
+    retrieved_feature = await get_hdfeature_by_name_and_type(FEATURE_NAME, FEATURE_TYPE)
+
+    # --- Assert ---
+    assert retrieved_feature is not None
+    assert retrieved_feature.name == FEATURE_NAME
+    assert retrieved_feature.feature_type == FEATURE_TYPE
+    assert retrieved_feature.details == INITIAL_DETAILS_DICT
+
+    # Assert mock calls *after* the function call
+    mock_session_obj.execute_read.assert_called_once()
+    mock_tx.run.assert_called_once()
+    called_query = mock_tx.run.call_args[0][0]
+    assert f"MATCH (hf:{HDFEATURE_LABEL} {{name: $name, feature_type: $feature_type}})" in called_query
+
+@pytest.mark.asyncio
+async def test_get_hdfeature_by_name_and_type_not_found(mock_neo4j_session):
+    mock_cursor = mock_neo4j_session["cursor"]
+    mock_cursor.data.return_value = []
+
+    retrieved_feature = await get_hdfeature_by_name_and_type("Non_Existent", "some_type")
     assert retrieved_feature is None
 
+# --- get_hdfeatures_by_type Tests ---
 @pytest.mark.asyncio
-async def test_get_hdfeatures_by_type_found(mock_neo4j_driver, sample_hdfeature_node_fixture: HDFeatureNode):
-    mock_tx_run_result = mock_neo4j_driver["tx_run_result"]
-    # Assume DB returns properties with details as string
-    mock_db_return_data = {
-        **SAMPLE_HDFEATURE_RAW_DATA,
-        "details": json.dumps(SAMPLE_HDFEATURE_RAW_DATA["details"])
-    }
-    mock_tx_run_result.data.return_value = [{"hf": mock_db_return_data}]
+async def test_get_hdfeatures_by_type_found(mock_neo4j_session, sample_hdfeature_data: dict):
+    mock_cursor = mock_neo4j_session["cursor"]
+    mock_cursor.data.return_value = [{"hf": sample_hdfeature_data}]
 
-    features = await get_hdfeatures_by_type(sample_hdfeature_node_fixture.feature_type)
+    features = await get_hdfeatures_by_type(FEATURE_TYPE)
     assert len(features) == 1
-    assert features[0].name == sample_hdfeature_node_fixture.name
+    assert features[0].name == FEATURE_NAME
+    assert features[0].details == INITIAL_DETAILS_DICT
 
+# --- update_hdfeature_properties Tests ---
 @pytest.mark.asyncio
-async def test_get_hdfeatures_by_type_not_found(mock_neo4j_driver):
-    mock_tx_run_result = mock_neo4j_driver["tx_run_result"]
-    mock_tx_run_result.data.return_value = []
-    features = await get_hdfeatures_by_type("non_existent_hd_type")
-    assert len(features) == 0
-    
-@pytest.mark.asyncio
-async def test_get_hdfeature_dao_exception(mock_neo4j_driver):
-    mock_session = mock_neo4j_driver["session"]
-    mock_session.execute_read.side_effect = DAOException("DB error during get")
-    
-    feature = await get_hdfeature_by_name("any_hd_name")
-    assert feature is None
-    features_list = await get_hdfeatures_by_type("any_hd_type")
-    assert features_list == []
+async def test_update_hdfeature_properties_success(mock_neo4j_session, sample_hdfeature_data: dict):
+    mock_cursor = mock_neo4j_session["cursor"]
+    mock_session_obj = mock_neo4j_session["session"]
+    mock_tx = mock_neo4j_session["tx"] # Get mock_tx from the fixture yield
 
-@pytest.mark.asyncio
-async def test_update_hdfeature_success(mock_neo4j_driver, sample_hdfeature_node_fixture: HDFeatureNode):
-    mock_tx_run_result = mock_neo4j_driver["tx_run_result"]
-    updated_details = {"state": "Defined", "function": "Manifestation, communication", "voice": "I speak"}
-    
-    expected_updated_raw_data = SAMPLE_HDFEATURE_RAW_DATA.copy()
-    expected_updated_raw_data["details"] = updated_details
-    # Mock DB return (details as string)
-    mock_db_return_data = {
-         **expected_updated_raw_data,
-         "details": json.dumps(updated_details)
-    }
-    mock_tx_run_result.single.return_value = {"hf": mock_db_return_data}
+    update_payload = {"details": {"function": "Partially Updated Function", "extra": True}}
 
-    # Pass the dict to update, CRUD should handle serialization
-    updated_feature = await update_hdfeature(sample_hdfeature_node_fixture.name, {"details": json.dumps(updated_details)})
+    expected_db_data_after_update = sample_hdfeature_data.copy()
+    expected_db_data_after_update["details"] = json.dumps(update_payload["details"])
+    mock_cursor.single.return_value = {"hf": expected_db_data_after_update}
 
+    # --- Act ---
+    updated_feature = await update_hdfeature_properties(FEATURE_NAME, FEATURE_TYPE, update_payload)
+
+    # --- Assert ---
     assert updated_feature is not None
-    assert updated_feature.details["voice"] == "I speak"
-    mock_neo4j_driver["session"].execute_write.assert_called_once()
+    assert updated_feature.details == update_payload["details"]
+
+    # Assert mock calls *after* the function call
+    mock_session_obj.execute_write.assert_called_once()
+    mock_tx.run.assert_called_once() # Check transaction ran
+    called_query = mock_tx.run.call_args[0][0]
+    assert f"MATCH (hf:{HDFEATURE_LABEL} {{name: $name, feature_type: $feature_type}})" in called_query
+    assert "SET hf += $props_to_set" in called_query
+    assert mock_tx.run.call_args[0][1]["props_to_set"] == update_payload
+
 
 @pytest.mark.asyncio
-async def test_update_hdfeature_not_found(mock_neo4j_driver):
-    mock_tx_run_result = mock_neo4j_driver["tx_run_result"]
-    mock_tx_run_result.single.return_value = None
+async def test_update_hdfeature_properties_not_found(mock_neo4j_session):
+    mock_cursor = mock_neo4j_session["cursor"]
+    mock_session_obj = mock_neo4j_session["session"]
+    mock_cursor.single.return_value = None
 
-    with patch('services.kg.app.crud.hdfeature_crud.get_hdfeature_by_name', AsyncMock(return_value=None)):
-        with pytest.raises(NodeNotFoundError):
-            await update_hdfeature("Non_Existent_HD_Feature_Update", {"details": {"info": "new info"}})
+    with pytest.raises(NodeNotFoundError):
+        await update_hdfeature_properties("Non_Existent", "some_type", {"details": {"info": "new"}})
+    mock_session_obj.execute_write.assert_called_once()
 
+# --- delete_hdfeature Tests ---
 @pytest.mark.asyncio
-async def test_update_hdfeature_dao_exception(mock_neo4j_driver):
-    mock_session = mock_neo4j_driver["session"]
-    mock_session.execute_write.side_effect = DAOException("DB error during update")
+async def test_delete_hdfeature_success(mock_neo4j_session, sample_hdfeature_node: HDFeatureNode):
+    mock_session_obj = mock_neo4j_session["session"]
+    mock_cursor = mock_neo4j_session["cursor"]
+    mock_tx = mock_neo4j_session["tx"] # Get mock_tx from the fixture yield
 
-    with pytest.raises(UpdateError, match="Database error updating HDFeature"):
-        await update_hdfeature("any_hd_feature_name", {"details": {"info": "new info"}})
+    with patch('services.kg.app.crud.hdfeature_crud.get_hdfeature_by_name_and_type', AsyncMock(return_value=sample_hdfeature_node)):
+        mock_cursor.single.return_value = None
 
-@pytest.mark.asyncio
-async def test_delete_hdfeature_success(mock_neo4j_driver, sample_hdfeature_node_fixture: HDFeatureNode):
-    with patch('services.kg.app.crud.hdfeature_crud.get_hdfeature_by_name', AsyncMock(return_value=sample_hdfeature_node_fixture)):
-        mock_neo4j_driver["tx_run_result"].single.return_value = None
+        deleted = await delete_hdfeature(FEATURE_NAME, FEATURE_TYPE)
 
-        deleted = await delete_hdfeature(sample_hdfeature_node_fixture.name)
+        # --- Assert ---
         assert deleted is True
-        mock_neo4j_driver["session"].execute_write.assert_called_once()
+        mock_session_obj.execute_write.assert_called_once()
+        mock_tx.run.assert_called_once() # Check transaction ran
+        called_delete_query = mock_tx.run.call_args[0][0]
+        assert f"MATCH (hf:{HDFEATURE_LABEL} {{name: $name, feature_type: $feature_type}})" in called_delete_query
+        assert "DETACH DELETE hf" in called_delete_query
+
 
 @pytest.mark.asyncio
-async def test_delete_hdfeature_not_found(mock_neo4j_driver):
-    with patch('services.kg.app.crud.hdfeature_crud.get_hdfeature_by_name', AsyncMock(return_value=None)):
-        deleted = await delete_hdfeature("Non_Existent_HD_Feature_Delete")
+async def test_delete_hdfeature_not_found(mock_neo4j_session):
+    mock_session_obj = mock_neo4j_session["session"]
+    with patch('services.kg.app.crud.hdfeature_crud.get_hdfeature_by_name_and_type', AsyncMock(return_value=None)):
+        deleted = await delete_hdfeature("Non_Existent", "some_type")
         assert deleted is False
-        mock_neo4j_driver["session"].execute_write.assert_not_called()
+        mock_session_obj.execute_write.assert_not_called()
+
 
 @pytest.mark.asyncio
-async def test_delete_hdfeature_dao_exception(mock_neo4j_driver, sample_hdfeature_node_fixture: HDFeatureNode):
-    with patch('services.kg.app.crud.hdfeature_crud.get_hdfeature_by_name', AsyncMock(return_value=sample_hdfeature_node_fixture)):
-        mock_session = mock_neo4j_driver["session"]
-        mock_session.execute_write.side_effect = DAOException("DB error during delete")
-
+async def test_delete_hdfeature_dao_exception_on_delete(mock_neo4j_session, sample_hdfeature_node: HDFeatureNode):
+    mock_session_obj = mock_neo4j_session["session"]
+    with patch('services.kg.app.crud.hdfeature_crud.get_hdfeature_by_name_and_type', AsyncMock(return_value=sample_hdfeature_node)):
+        mock_session_obj.execute_write.side_effect = DAOException("DB error during actual delete hd")
         with pytest.raises(DeletionError, match="Database error deleting HDFeature"):
-            await delete_hdfeature(sample_hdfeature_node_fixture.name)
+            await delete_hdfeature(FEATURE_NAME, FEATURE_TYPE)

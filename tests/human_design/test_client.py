@@ -55,8 +55,15 @@ async def test_get_human_design_chart_success(mocker):
     mock_getenv = mocker.patch('os.getenv')
     mock_getenv.side_effect = lambda key: 'FAKE_HD_KEY' if key == 'HD_API_KEY' else ('FAKE_GEO_KEY' if key == 'GEO_API_KEY' else None)
 
-    # Call the function
-    result = await get_human_design_chart(TEST_BIRTH_DATA)
+    # Call the function, unpacking the BirthData object
+    result = await get_human_design_chart(
+        birth_date=TEST_BIRTH_DATA.birth_date,
+        birth_time=TEST_BIRTH_DATA.birth_time,
+        city_of_birth=TEST_BIRTH_DATA.city_of_birth,
+        country_of_birth=TEST_BIRTH_DATA.country_of_birth,
+        latitude=TEST_BIRTH_DATA.latitude,
+        longitude=TEST_BIRTH_DATA.longitude
+    )
 
     # Assertions
     assert result == SAMPLE_SUCCESS_RESPONSE
@@ -96,8 +103,15 @@ async def test_get_human_design_chart_http_error(mocker):
     # Mock os.getenv
     mock_getenv = mocker.patch('os.getenv')
     mock_getenv.side_effect = lambda key: 'FAKE_HD_KEY' if key == 'HD_API_KEY' else ('FAKE_GEO_KEY' if key == 'GEO_API_KEY' else None)
-
-    result = await get_human_design_chart(TEST_BIRTH_DATA)
+ 
+    result = await get_human_design_chart(
+        birth_date=TEST_BIRTH_DATA.birth_date,
+        birth_time=TEST_BIRTH_DATA.birth_time,
+        city_of_birth=TEST_BIRTH_DATA.city_of_birth,
+        country_of_birth=TEST_BIRTH_DATA.country_of_birth,
+        latitude=TEST_BIRTH_DATA.latitude,
+        longitude=TEST_BIRTH_DATA.longitude
+    )
 
     assert result is None
     mock_post.assert_awaited_once() # Check that post was called
@@ -115,8 +129,15 @@ async def test_get_human_design_chart_request_error(mocker):
     # Mock os.getenv
     mock_getenv = mocker.patch('os.getenv')
     mock_getenv.side_effect = lambda key: 'FAKE_HD_KEY' if key == 'HD_API_KEY' else ('FAKE_GEO_KEY' if key == 'GEO_API_KEY' else None)
-
-    result = await get_human_design_chart(TEST_BIRTH_DATA)
+ 
+    result = await get_human_design_chart(
+        birth_date=TEST_BIRTH_DATA.birth_date,
+        birth_time=TEST_BIRTH_DATA.birth_time,
+        city_of_birth=TEST_BIRTH_DATA.city_of_birth,
+        country_of_birth=TEST_BIRTH_DATA.country_of_birth,
+        latitude=TEST_BIRTH_DATA.latitude,
+        longitude=TEST_BIRTH_DATA.longitude
+    )
 
     assert result is None
     mock_post.assert_awaited_once()
@@ -134,8 +155,15 @@ async def test_get_human_design_chart_unexpected_error(mocker):
     # Mock os.getenv
     mock_getenv = mocker.patch('os.getenv')
     mock_getenv.side_effect = lambda key: 'FAKE_HD_KEY' if key == 'HD_API_KEY' else ('FAKE_GEO_KEY' if key == 'GEO_API_KEY' else None)
-
-    result = await get_human_design_chart(TEST_BIRTH_DATA)
+ 
+    result = await get_human_design_chart(
+        birth_date=TEST_BIRTH_DATA.birth_date,
+        birth_time=TEST_BIRTH_DATA.birth_time,
+        city_of_birth=TEST_BIRTH_DATA.city_of_birth,
+        country_of_birth=TEST_BIRTH_DATA.country_of_birth,
+        latitude=TEST_BIRTH_DATA.latitude,
+        longitude=TEST_BIRTH_DATA.longitude
+    )
 
     assert result is None
     mock_post.assert_awaited_once()
@@ -173,8 +201,18 @@ async def test_get_human_design_chart_location_fallback(mocker): # Add mocker fi
     # Mock os.getenv
     mock_getenv = mocker.patch('os.getenv')
     mock_getenv.side_effect = lambda key: 'FAKE_HD_KEY' if key == 'HD_API_KEY' else ('FAKE_GEO_KEY' if key == 'GEO_API_KEY' else None)
-
-    await get_human_design_chart(birth_data_no_city)
+ 
+    # Note: The client function expects city/country strings, even if None/empty.
+    # The test setup uses None, which might cause issues if the client doesn't handle it.
+    # Assuming the client handles None or empty strings appropriately for city/country.
+    await get_human_design_chart(
+        birth_date=birth_data_no_city.birth_date,
+        birth_time=birth_data_no_city.birth_time,
+        city_of_birth=birth_data_no_city.city, # Pass None as per test setup
+        country_of_birth=birth_data_no_city.country, # Pass None as per test setup
+        latitude=birth_data_no_city.latitude,
+        longitude=birth_data_no_city.longitude
+    )
 
     # Assert that the payload used the fallback location string
     mock_post.assert_awaited_once_with(

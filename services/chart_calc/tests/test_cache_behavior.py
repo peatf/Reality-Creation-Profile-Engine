@@ -6,8 +6,8 @@ from fastapi import status
 
 # Assuming conftest.py and app setup are correct.
 # Test client from conftest.py will trigger app startup/shutdown, initializing Redis.
-from app.core.cache import get_from_cache, set_to_cache, invalidate_cache_key, DEFAULT_CACHE_TTL_SECONDS, get_redis_client
-from app.main import CalculationRequest # For creating cache keys similar to app
+from ..app.core.cache import get_from_cache, set_to_cache, invalidate_cache_key, DEFAULT_CACHE_TTL_SECONDS, get_redis_client # Use relative import
+from ..app.main import CalculationRequest # Use relative import
 
 # Fixture to ensure Redis is available for these tests
 @pytest.fixture(scope="function", autouse=True) # Changed scope to function

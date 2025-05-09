@@ -1,8 +1,6 @@
 # infra/docker/docker-compose.yml
 # Docker Compose setup for local development environment
 
-version: '3.8'
-
 services:
   db: # Renamed from postgres
     image: postgres:15 # Changed image to standard postgres:15
@@ -40,6 +38,12 @@ services:
     environment:
       ZOOKEEPER_CLIENT_PORT: 2181
       ZOOKEEPER_TICK_TIME: 2000
+    healthcheck:
+      test: ["CMD-SHELL", "echo ruok | nc localhost 2181 | grep imok"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
     restart: unless-stopped
 
   kafka:
@@ -57,6 +61,12 @@ services:
       KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1 # Development setting
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1 # Development setting
+    healthcheck:
+      test: ["CMD-SHELL", "kafka-topics --bootstrap-server localhost:9093 --list"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 15s
     restart: unless-stopped
 
   schema-registry:
@@ -64,19 +74,18 @@ services:
     container_name: schema-registry
     depends_on:
       kafka:
-        condition: service_started
+        condition: service_healthy # Depends on Kafka being healthy
     environment:
       SCHEMA_REGISTRY_HOST_NAME: schema-registry
       SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: kafka:9093 # Use internal listener, without scheme
       SCHEMA_REGISTRY_KAFKASTORE_SECURITY_PROTOCOL: PLAINTEXT # Explicitly set protocol
       SCHEMA_REGISTRY_LISTENERS: http://0.0.0.0:8081
-    # Removed healthcheck due to persistent failures
-    # healthcheck:
-    #   test: ["CMD-SHELL", "curl -f http://schema-registry:8081 || exit 1"]
-    #   interval: 10s
-    #   timeout: 5s
-    #   retries: 5
-    #   start_period: 30s
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8081/subjects || exit 1"] # Check a common endpoint
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 30s # Schema registry can take time
     restart: unless-stopped
 
   app: # Added app service definition correctly under 'services'
@@ -92,9 +101,9 @@ services:
       redis:
         condition: service_healthy
       kafka:
-        condition: service_started # Kafka doesn't have a healthcheck here
+        condition: service_healthy
       schema-registry:
-        condition: service_started # Reverted to service_started as healthcheck was removed
+        condition: service_healthy
     environment:
       # Database connection (adjust if needed based on actual usage)
       DATABASE_URL: postgresql://app_user:change_me@db:5432/reality_engine
@@ -107,16 +116,21 @@ services:
       PYTHONPATH: /app
     # Override default command for testing or development
     # Use sleep infinity for a more robust way to keep container running
-    command: sleep infinity
-    # No restart needed for test runs usually
-    # restart: unless-stopped
+    command: sleep infinity # Keep it running for dev/test, healthcheck will use its actual server
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8000/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s # Give app time to start
+    restart: unless-stopped
 
   neo4j:
     image: neo4j:5 # Use a specific version, e.g., 5
     container_name: neo4j_graph
     environment:
       # Set a password for the neo4j user. Use secrets in production!
-      NEO4J_AUTH: neo4j/change_this_password
+      NEO4J_AUTH: neo4j/yoursecurepassword
       # Optional: Configure memory limits if needed
       # NEO4J_server_memory_pagecache_size: 1G
       # NEO4J_server_memory_heap_initial__size: 1G
@@ -130,11 +144,11 @@ services:
       # Check if the Bolt port is open and responding
       # Use curl against the HTTP endpoint, which is often available earlier and curl is common
       # Use cypher-shell to check Bolt connectivity and basic query execution
-      test: ["CMD-SHELL", "cypher-shell -u neo4j -p change_this_password -a bolt://localhost:7687 'RETURN 1' || exit 1"]
+      test: ["CMD-SHELL", "cypher-shell -u neo4j -p yoursecurepassword -a bolt://localhost:7687 'RETURN 1' || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 5
-      start_period: 20s # Give Neo4j time to start
+      start_period: 30s # Give Neo4j more time to start
     restart: unless-stopped
 
   kg_service:
@@ -144,7 +158,7 @@ services:
     container_name: kg_service
     depends_on:
       kafka:
-        condition: service_started # Wait for Kafka to be available
+        condition: service_healthy # Wait for Kafka to be available and healthy
       neo4j:
         condition: service_healthy # Wait for Neo4j to be healthy
     environment:
@@ -154,7 +168,7 @@ services:
       # Neo4j connection details (match the neo4j service)
       NEO4J_URI: bolt://neo4j:7687
       NEO4J_USER: neo4j
-      NEO4J_PASSWORD: change_this_password # MUST MATCH NEO4J_AUTH password
+      NEO4J_PASSWORD: yoursecurepassword # MUST MATCH NEO4J_AUTH password
       NEO4J_DATABASE: neo4j # Default database
       # Logging level for the service
       LOG_LEVEL: INFO
@@ -163,15 +177,45 @@ services:
     # Optional: Mount code for development (if not relying solely on build)
     # volumes:
     #   - ../..:/app
+    ports:
+      - "8000:8000" # Expose port for FastAPI app
     healthcheck:
-      # Basic healthcheck: Check if the main Python process is running
-      # A more robust check would involve a script verifying Kafka/Neo4j connectivity
-      # or a dedicated health endpoint if the service had one.
-      test: ["CMD-SHELL", "pgrep -f '/app/services/kg/main.py' || exit 1"]
+      test: ["CMD-SHELL", "curl -f http://localhost:8000/health || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 15s # Give consumers time to start
+      start_period: 20s # Give FastAPI app and consumers time to start
+    restart: unless-stopped
+
+  chart_calc_service:
+    build:
+      context: ../../services/chart_calc # Context relative to this docker-compose file
+      dockerfile: docker/Dockerfile # Path to the chart_calc Dockerfile
+    container_name: chart_calc_service
+    depends_on:
+      kafka:
+        condition: service_healthy
+      schema-registry: # If it produces events that need schema
+        condition: service_healthy
+      redis: # If it uses cache
+        condition: service_healthy
+    environment:
+      # Example environment variables, adjust as needed from chart_calc actual config
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9093
+      SCHEMA_REGISTRY_URL: http://schema-registry:8081
+      REDIS_URL: redis://redis_cache:6379/0
+      LOG_LEVEL: INFO
+      PYTHONPATH: /app # Ensure /app is in PYTHONPATH if main.py is in /app/app
+    ports:
+      - "8001:8000" # Expose on a different host port if main app uses 8000
+    healthcheck:
+      # Uses the HEALTHCHECK from its own Dockerfile, but we can override or define here
+      # For consistency and to ensure httpx is available if not in its image:
+      test: ["CMD-SHELL", "python -c \"import httpx; exit(0) if httpx.get('http://localhost:8000/health').status_code == 200 else exit(1)\""]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
     restart: unless-stopped
 
 # Top-level volumes definition (no indentation)

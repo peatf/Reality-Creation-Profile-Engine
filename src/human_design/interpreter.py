@@ -30,9 +30,17 @@ DEFAULT_HD_KB_STRUCTURE = {
     # Add a key for "crosses" if it's to be formally part of the KB
     # "crosses": {}
 }
-
+ 
+VARIABLE_TYPES = { # Store the string values
+    KnowledgeBaseKeys.DETERMINATION.value,
+    KnowledgeBaseKeys.COGNITION.value,
+    KnowledgeBaseKeys.MOTIVATION.value,
+    KnowledgeBaseKeys.PERSPECTIVE.value,
+    KnowledgeBaseKeys.ENVIRONMENT.value
+}
+ 
 # --- Knowledge Base Loading and Transformation ---
-
+ 
 # Constants like AUTHORITY_MAPPING, HD_TYPES, HD_STRATEGIES,
 # MOTIVATION_TERM_NAMES, PERSPECTIVE_TERM_NAMES, VARIABLE_TYPES
 # were used for parsing the flat list from enginedef.json.
@@ -88,22 +96,104 @@ def transform_knowledge_base() -> Dict[str, Any]:
     logger.info("Loading Human Design definitions from individual JSON files...")
 
     # Load main categories - assuming JSON files return dicts ready for assignment
-    hd_data[KnowledgeBaseKeys.CENTERS.value] = load_hd_json_file("centers") or {}
+    # Process centers.json specifically
+    centers_list = load_hd_json_file("centers")
+    centers_dict = {}
+    if isinstance(centers_list, list):
+        for item in centers_list:
+            if isinstance(item, dict) and "term_name" in item:
+                # Extract base name (e.g., "Head" from "Head Center")
+                center_name = item["term_name"].replace(" Center", "").strip()
+                if center_name not in centers_dict:
+                    centers_dict[center_name] = {}
+                # Heuristic: Assume first entry for a center is 'Defined', second is 'Undefined'
+                # A better approach would be an explicit 'state' field in the JSON.
+                # For now, relying on the observed pattern in the JSON.
+                if "Defined" not in centers_dict[center_name]:
+                     centers_dict[center_name]["Defined"] = item
+                elif "Undefined" not in centers_dict[center_name]:
+                     centers_dict[center_name]["Undefined"] = item
+                else:
+                     logger.warning(f"Found more than two entries for center '{center_name}' in centers.json. Check data.")
+    else:
+        logger.warning("centers.json did not load as a list. Using raw loaded data or empty dict.")
+        centers_dict = centers_list or {}
+    hd_data[KnowledgeBaseKeys.CENTERS.value] = centers_dict
+
     hd_data[KnowledgeBaseKeys.GATES.value] = load_hd_json_file("HD_gates") or {}
     hd_data[KnowledgeBaseKeys.CHANNELS.value] = load_hd_json_file("HD_channels") or {}
     hd_data[KnowledgeBaseKeys.PROFILES.value] = load_hd_json_file("profiles") or {}
-    hd_data[KnowledgeBaseKeys.G_CENTER_ACCESS_DETAILS.value] = load_hd_json_file("g_center_access") or {}
+    
+    # Load G Center Access details and transform from list to dict keyed by 'id'
+    g_center_access_list = load_hd_json_file("g_center_access")
+    if isinstance(g_center_access_list, list):
+        hd_data[KnowledgeBaseKeys.G_CENTER_ACCESS_DETAILS.value] = {
+            item["id"]: item for item in g_center_access_list if isinstance(item, dict) and "id" in item
+        }
+    elif isinstance(g_center_access_list, dict): # If it's already a dict (e.g. from a different loading mechanism or error)
+        hd_data[KnowledgeBaseKeys.G_CENTER_ACCESS_DETAILS.value] = g_center_access_list
+    else: # If it's None or some other unexpected type
+        logger.warning(f"g_center_access.json did not load as a list or dict (type: {type(g_center_access_list)}). Initializing as empty dict.")
+        hd_data[KnowledgeBaseKeys.G_CENTER_ACCESS_DETAILS.value] = {}
     
     # Types, Strategies, Authorities
     # Assuming HD_Types.json contains only type definitions.
     # Strategies and Authorities will remain empty unless dedicated files are loaded
     # or HD_Types.json (or another file) is structured to include them and logic is added here to parse.
-    hd_data[KnowledgeBaseKeys.TYPES.value] = load_hd_json_file("HD_Types") or {}
     
-    # Example if strategies and authorities had their own files:
+    types_list = load_hd_json_file("HD_Types")
+    processed_types = {}
+    processed_strategies = {} # Initialize strategies dict
+
+    if isinstance(types_list, list):
+        for item in types_list:
+            if isinstance(item, dict) and "term_name" in item:
+                term_name = item["term_name"]
+                # Separate Types and Strategies based on known terms
+                if term_name in ["Manifestor", "Generator", "Manifesting Generator", "Projector", "Reflector"]:
+                    processed_types[term_name] = {
+                        "definition": item.get("definition"),
+                        "role_in_manifestation": item.get("role_in_manifestation"),
+                        # Extract strategy/signature if available in this item, or it will be linked later
+                        "strategy": item.get("strategy"),
+                        "signature": item.get("signature")
+                    }
+                elif term_name in ["Informing", "Responding", "Waiting for the Invitation", "Waiting a Lunar Cycle"]:
+                    processed_strategies[term_name] = {
+                        "definition": item.get("definition"),
+                        "role_in_manifestation": item.get("role_in_manifestation")
+                    }
+                # Authorities are also in HD_Types.json, they will be handled by AUTHORITY_MAPPING logic below
+    
+    hd_data[KnowledgeBaseKeys.TYPES.value] = processed_types if processed_types else (types_list if isinstance(types_list, dict) else {})
+    
+    # If strategies were processed from HD_Types.json, update the knowledge base
+    if processed_strategies:
+        hd_data[KnowledgeBaseKeys.STRATEGIES.value] = processed_strategies
+    # Else, it remains as initialized from DEFAULT_HD_KB_STRUCTURE (empty dict)
+    # or could be loaded from a dedicated "strategies.json" if one existed:
+    # else:
+    #    hd_data[KnowledgeBaseKeys.STRATEGIES.value] = load_hd_json_file("strategies") or {}
+
+    # Populate Authorities using AUTHORITY_MAPPING as there's no dedicated authorities.json
+    # This part correctly uses AUTHORITY_MAPPING to create placeholder definitions.
+    # If HD_Types.json also contains authority definitions, they could be merged or prioritized here.
+    # For now, the mapping takes precedence for creating the structure.
+    # This ensures the structure expected by tests exists.
+    authorities_data_map = {}
+    for term_name, internal_key in AUTHORITY_MAPPING.items():
+        authorities_data_map[internal_key] = {
+            "term_name": term_name, # Original term name from mapping
+            "definition": f"Definition for {internal_key} Authority.", # Placeholder
+            "role_in_manifestation": f"Role of {internal_key} Authority in manifestation.", # Placeholder
+            "keywords": [internal_key], # Placeholder
+            "notes": "Populated from AUTHORITY_MAPPING due to missing authorities.json" # Placeholder
+        }
+    hd_data[KnowledgeBaseKeys.AUTHORITIES.value] = authorities_data_map
+    
+    # Populate Strategies similarly if a STRATEGY_MAPPING existed or from HD_Types if structured that way
+    # For now, strategies will remain empty unless a strategies.json is loaded or derived from types.
     # hd_data[KnowledgeBaseKeys.STRATEGIES.value] = load_hd_json_file("strategies") or {}
-    # hd_data[KnowledgeBaseKeys.AUTHORITIES.value] = load_hd_json_file("authorities") or {}
-    # Since these files are not listed in the prompt, these keys will likely remain empty.
 
     # Load Variables
     variables_target = hd_data.setdefault(KnowledgeBaseKeys.VARIABLES.value, {}) # Ensure 'variables' key exists
@@ -194,13 +284,13 @@ def get_hd_definition(category: KnowledgeBaseKeys, key: str) -> Optional[Dict[st
     if not category or not key:
         return None
     # Handle nested variable lookups specifically if needed, or assume top-level category access
-    if category in VARIABLE_TYPES:
+    if category.value in VARIABLE_TYPES: # Check against string values
          # This function is designed for top-level categories like GATES, CHANNELS etc.
          # Accessing nested variables requires knowing the variable type first.
          # Example: HD_KNOWLEDGE_BASE.get(KnowledgeBaseKeys.VARIABLES.value, {}).get(category.value, {}).get(key)
          logger.warning(f"get_hd_definition called with a variable sub-key '{category.name}'. Use direct nested access for variables.")
          return None # Or implement nested lookup logic here if desired
-
+ 
     # Standard lookup for top-level categories
     return HD_KNOWLEDGE_BASE.get(category.value, {}).get(key)
 
@@ -339,14 +429,18 @@ def interpret_human_design_chart(chart_data: Optional[Dict[str, Any]]) -> Option
         insights["channel_info"][channel_key] = get_hd_definition(KnowledgeBaseKeys.CHANNELS, channel_key) or {}
 
     # Add variable descriptions (using direct nested access as get_hd_definition is for top-level)
-    variables_base = HD_KNOWLEDGE_BASE.get(KnowledgeBaseKeys.VARIABLES.value, {})
+    variables_base = HD_KNOWLEDGE_BASE.get(KnowledgeBaseKeys.VARIABLES.value) # Get "variables_info" dict
+    
+    if not isinstance(variables_base, dict):
+        logger.error(f"Critical: HD_KNOWLEDGE_BASE['{KnowledgeBaseKeys.VARIABLES.value}'] is not a dict or is missing. Type: {type(variables_base)}. KB Keys: {list(HD_KNOWLEDGE_BASE.keys())}")
+        variables_base = {} # Fallback to empty dict to prevent further errors
+
     insights["variable_info"] = {
-        "determination": variables_base.get(KnowledgeBaseKeys.DETERMINATION.value, {}).get(determination) if determination else {}, # Use chart_data.get('determination') as key
-        "cognition": variables_base.get(KnowledgeBaseKeys.COGNITION.value, {}).get(cognition) if cognition else {}, # Use chart_data.get('cognition') as key
-        "perspective": variables_base.get(KnowledgeBaseKeys.PERSPECTIVE.value, {}).get(perspective) if perspective else {}, # Use chart_data.get('perspective') (full term name) as key
-        "motivation": variables_base.get(KnowledgeBaseKeys.MOTIVATION.value, {}).get(motivation) if motivation else {}, # Use chart_data.get('motivation') (full term name) as key
-        # Add environment when data is available
-        "environment": variables_base.get(KnowledgeBaseKeys.ENVIRONMENT.value, {}).get(variables_parsed.get("environment_type")) if variables_parsed.get("environment_type") else {} # Assuming env type is parsed
+        "determination": (variables_base.get(KnowledgeBaseKeys.DETERMINATION.value, {}).get(determination) if determination else {}) if isinstance(variables_base.get(KnowledgeBaseKeys.DETERMINATION.value), dict) else {},
+        "cognition": (variables_base.get(KnowledgeBaseKeys.COGNITION.value, {}).get(cognition) if cognition else {}) if isinstance(variables_base.get(KnowledgeBaseKeys.COGNITION.value), dict) else {},
+        "perspective": (variables_base.get(KnowledgeBaseKeys.PERSPECTIVE.value, {}).get(perspective) if perspective else {}) if isinstance(variables_base.get(KnowledgeBaseKeys.PERSPECTIVE.value), dict) else {},
+        "motivation": (variables_base.get(KnowledgeBaseKeys.MOTIVATION.value, {}).get(motivation) if motivation else {}) if isinstance(variables_base.get(KnowledgeBaseKeys.MOTIVATION.value), dict) else {},
+        "environment": (variables_base.get(KnowledgeBaseKeys.ENVIRONMENT.value, {}).get(variables_parsed.get("environment_type")) if variables_parsed.get("environment_type") else {}) if isinstance(variables_base.get(KnowledgeBaseKeys.ENVIRONMENT.value), dict) else {}
     }
 
     # Add manifestation insights
@@ -434,7 +528,7 @@ if __name__ == '__main__':
         }
     }]
 
-    interpreted = interpret_human_design_chart(test_chart_data_list)
+    interpreted = interpret_human_design_chart(test_chart_data_list[0] if test_chart_data_list else None)
     if interpreted:
         print("\n--- Interpreted Human Design Data (Sample) ---")
         import json

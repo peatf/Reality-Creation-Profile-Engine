@@ -5,13 +5,16 @@ from typing import Dict, Any, Optional
 from datetime import datetime, timezone
 
 from ..core.config import kafka_settings, neo4j_settings # Import both settings objects
-from aiokafka import AIOKafkaConsumer
-from aiokafka.errors import KafkaError
+from aiokafka import AIOKafkaConsumer, AIOKafkaProducer
+from aiokafka.errors import KafkaError # Import only base KafkaError
+from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
+from neo4j.exceptions import ServiceUnavailable as Neo4jServiceUnavailable
+from pydantic import ValidationError
 
 # Import CRUD operations
-from ..crud.person_crud import create_person, get_person_by_user_id, update_person
-from ..crud.astrofeature_crud import create_astrofeature, get_astrofeature_by_name
-from ..crud.hdfeature_crud import create_hdfeature, get_hdfeature_by_name
+from ..crud.person_crud import upsert_person, get_person_by_user_id, update_person_properties # Corrected imports
+from ..crud.astrofeature_crud import upsert_astrofeature, get_astrofeature_by_name_and_type # Corrected imports
+from ..crud.hdfeature_crud import upsert_hdfeature, get_hdfeature_by_name_and_type # Corrected imports
 from ..crud.relationship_crud import (
     link_person_to_astrofeature,
     link_person_to_hdfeature
@@ -43,11 +46,16 @@ class ChartCalculatedConsumer:
             value_deserializer=lambda v: json.loads(v.decode('utf-8')), # Assuming JSON messages
             key_deserializer=lambda k: k.decode('utf-8') if k else None,
             auto_offset_reset="earliest", # Or "latest" depending on requirement
-            enable_auto_commit=True, # Or False for manual commits
+            enable_auto_commit=False, # Manual commits
             # Add other aiokafka consumer configurations if needed
+        )
+        self.dlq_producer = AIOKafkaProducer(
+            bootstrap_servers=kafka_settings.bootstrap_servers,
+            value_serializer=lambda v: json.dumps(v).encode('utf-8') # Assuming DLQ messages are JSON
         )
         self._running = False
         self._consumer_task = None
+        self._dlq_producer_started = False
 
     async def _process_astro_chart(self, user_id: str, birth_data: CalculationRequest, astro_chart: AstrologyChartResponse):
         logger.info(f"Processing ASTROLOGY chart for user_id: {user_id}")
@@ -63,8 +71,8 @@ class ChartCalculatedConsumer:
                 birth_longitude=birth_data.longitude
             )
             try:
-                person_node = await create_person(person_payload)
-                logger.info(f"Created PersonNode for user_id: {user_id}")
+                person_node = await upsert_person(person_payload) # Use upsert_person
+                logger.info(f"Upserted (created) PersonNode for user_id: {user_id}")
             except NodeCreationError as e: # Handles UniqueConstraintViolationError from create_person
                 logger.warning(f"PersonNode creation failed (likely already exists) for {user_id}: {e}. Fetching again.")
                 person_node = await get_person_by_user_id(user_id)
@@ -91,8 +99,8 @@ class ChartCalculatedConsumer:
 
             if needs_update:
                 try:
-                    person_node = await update_person(user_id, update_payload)
-                    logger.info(f"Updated PersonNode for user_id: {user_id}")
+                    person_node = await update_person_properties(user_id, update_payload) # Use update_person_properties
+                    logger.info(f"Updated PersonNode properties for user_id: {user_id}")
                 except DAOException as e:
                      logger.error(f"Failed to update PersonNode for {user_id}: {e}")
                      # Continue with old person_node data if update fails
@@ -108,12 +116,14 @@ class ChartCalculatedConsumer:
                 details=json.dumps(details_dict) # Store as JSON string
             )
             try:
-                feature_node = await get_astrofeature_by_name(feature_name)
+                # Use get_astrofeature_by_name_and_type with both name and type
+                feature_node = await get_astrofeature_by_name_and_type(feature_node_payload.name, feature_node_payload.feature_type)
                 if not feature_node:
-                    feature_node = await create_astrofeature(feature_node_payload)
+                    feature_node = await upsert_astrofeature(feature_node_payload) # Use upsert_astrofeature
                 # Ensure relationship properties are handled
                 rel_props = HasFeatureProperties(source_calculation_id="chart_calc_event") # Add event ID if available
-                await link_person_to_astrofeature(user_id, feature_name, rel_props)
+                # link_person_to_astrofeature needs name and type
+                await link_person_to_astrofeature(user_id, feature_node_payload.name, feature_node_payload.feature_type, rel_props)
             except (NodeCreationError, DAOException) as e:
                 logger.error(f"Error processing AstroFeature '{feature_name}' for user {user_id}: {e}")
 
@@ -126,11 +136,13 @@ class ChartCalculatedConsumer:
                 details=json.dumps(details_dict) # Store as JSON string
             )
             try:
-                feature_node = await get_astrofeature_by_name(feature_name)
+                # Use get_astrofeature_by_name_and_type with both name and type
+                feature_node = await get_astrofeature_by_name_and_type(feature_node_payload.name, feature_node_payload.feature_type)
                 if not feature_node:
-                    feature_node = await create_astrofeature(feature_node_payload)
+                    feature_node = await upsert_astrofeature(feature_node_payload) # Use upsert_astrofeature
                 rel_props = HasFeatureProperties(source_calculation_id="chart_calc_event")
-                await link_person_to_astrofeature(user_id, feature_name, rel_props)
+                # link_person_to_astrofeature needs name and type
+                await link_person_to_astrofeature(user_id, feature_node_payload.name, feature_node_payload.feature_type, rel_props)
             except (NodeCreationError, DAOException) as e:
                 logger.error(f"Error processing AstroFeature Aspect '{feature_name}' for user {user_id}: {e}")
         # Add more AstroFeatures: house cusps, North Node etc.
@@ -180,89 +192,155 @@ class ChartCalculatedConsumer:
 
         for feature_info in hd_features_to_create:
             # Ensure details is a valid JSON string before creating node
-            if 'details' in feature_info and not isinstance(feature_info['details'], str):
-                 feature_info['details'] = json.dumps(feature_info['details'])
+            if 'details' in feature_info:
+                if not isinstance(feature_info['details'], str):
+                    feature_info['details'] = json.dumps(feature_info['details'])
+                # Ensure details is not an empty string, which causes JSONDecodeError for Pydantic's Json type
+                if feature_info['details'] == "":
+                    feature_info['details'] = None # Convert empty string to None
+            else: # If 'details' key is missing, set it to None to satisfy Optional field
+                feature_info['details'] = None
 
             feature_node_payload = HDFeatureNode(**feature_info)
             try:
-                feature_node = await get_hdfeature_by_name(feature_node_payload.name)
+                # Use get_hdfeature_by_name_and_type with both name and type
+                feature_node = await get_hdfeature_by_name_and_type(feature_node_payload.name, feature_node_payload.feature_type)
                 if not feature_node:
-                    feature_node = await create_hdfeature(feature_node_payload)
+                    feature_node = await upsert_hdfeature(feature_node_payload) # Use upsert_hdfeature
                 rel_props = HasFeatureProperties(source_calculation_id="chart_calc_event")
-                await link_person_to_hdfeature(user_id, feature_node_payload.name, rel_props)
+                # link_person_to_hdfeature needs name and type
+                await link_person_to_hdfeature(user_id, feature_node_payload.name, feature_node_payload.feature_type, rel_props)
             except (NodeCreationError, DAOException) as e:
                 logger.error(f"Error processing HDFeature '{feature_node_payload.name}' for user {user_id}: {e}")
 
 
+    async def _send_to_dlq(self, key: Optional[str], value: Any, error_type: str, error_message: str, original_topic: str):
+        """Sends a message to the Dead-Letter Queue."""
+        dlq_message = {
+            "original_key": key,
+            "original_value": value, # Value might not be serializable if it's already broken
+            "original_topic": original_topic,
+            "error_type": error_type,
+            "error_message": error_message,
+            "dlq_timestamp": datetime.now(timezone.utc).isoformat()
+        }
+        try:
+            logger.warning(f"Sending message for key {key} from topic {original_topic} to DLQ topic {kafka_settings.chart_consumer_dlq_topic} due to {error_type}")
+            await self.dlq_producer.send_and_wait(kafka_settings.chart_consumer_dlq_topic, value=dlq_message, key=key) # Use original key for DLQ partitioning if desired
+            logger.info(f"Successfully sent message for key {key} to DLQ topic {kafka_settings.chart_consumer_dlq_topic}.")
+        except KafkaError as e: # Catch base KafkaError which includes producer errors
+            logger.error(f"KafkaError sending message for key {key} to DLQ topic {kafka_settings.chart_consumer_dlq_topic}: {e}", exc_info=True)
+            # If DLQ send fails, the message will be reprocessed from the original topic if offset isn't committed.
+            # This is a critical failure point. Consider alternative alerting or handling.
+            raise # Re-raise to signal failure to the caller in consume loop
+        except Exception as e:
+            logger.error(f"Unexpected error sending message for key {key} to DLQ: {e}", exc_info=True)
+            raise # Re-raise
+
+    async def process_message_with_retry(self, message_key: Optional[str], message_value: Dict[str, Any], topic: str, partition: int, offset: int):
+        """
+        Processes a single message with retry logic for transient errors.
+        If persistent error, sends to DLQ.
+        """
+        try:
+            # Define retry strategy for transient errors (e.g., Neo4j connection issues)
+            # DAOException can be broad; Neo4jServiceUnavailable is more specific for retries.
+            # Other DAOExceptions might be persistent (e.g., data integrity) and should go to DLQ.
+            @retry(
+                stop=stop_after_attempt(3), # Max 3 attempts
+                wait=wait_exponential(multiplier=1, min=2, max=10), # Exponential backoff: 2s, 4s, 8s
+                retry=retry_if_exception_type(Neo4jServiceUnavailable), # Only retry for Neo4j service unavailable
+                reraise=True # Reraise the exception if retries are exhausted
+            )
+            async def _process_logic():
+                logger.info(f"Attempting to process message for key {message_key}, attempt: {_process_logic.retry.statistics['attempt_number']}")
+                await self.process_message(message_key, message_value)
+
+            await _process_logic()
+            logger.info(f"Successfully processed message for key {message_key} after {_process_logic.retry.statistics.get('attempt_number', 1)} attempts.")
+
+        except ValidationError as e: # Pydantic validation error (persistent)
+            logger.error(f"ValidationError processing message for key {message_key} from {topic} P:{partition} O:{offset}. Error: {e}", exc_info=True)
+            await self._send_to_dlq(message_key, message_value, "validation_error", str(e), original_topic=topic)
+        except (UniqueConstraintViolationError, NodeCreationError) as e: # Specific DAO errors that are likely persistent
+            logger.error(f"Persistent DAO Error (UniqueConstraintViolationError or NodeCreationError) processing message for key {message_key} from {topic} P:{partition} O:{offset}. Error: {e}", exc_info=True)
+            await self._send_to_dlq(message_key, message_value, "persistent_dao_error", str(e), original_topic=topic)
+        except Neo4jServiceUnavailable as e: # Retries exhausted for Neo4j
+            logger.error(f"Neo4jServiceUnavailable after retries for key {message_key} from {topic} P:{partition} O:{offset}. Error: {e}", exc_info=True)
+            await self._send_to_dlq(message_key, message_value, "neo4j_unavailable_after_retries", str(e), original_topic=topic)
+        except DAOException as e: # Other DAO errors that might be persistent or unhandled by specific catches
+            logger.error(f"Unhandled DAOException processing message for key {message_key} from {topic} P:{partition} O:{offset}. Error: {e}", exc_info=True)
+            await self._send_to_dlq(message_key, message_value, "unhandled_dao_exception", str(e), original_topic=topic)
+        except ValueError as e: # Custom value errors from process_message (e.g. missing key/payload)
+            logger.error(f"ValueError (likely malformed message) processing message for key {message_key} from {topic} P:{partition} O:{offset}. Error: {e}", exc_info=True)
+            await self._send_to_dlq(message_key, message_value, "value_error_malformed_message", str(e), original_topic=topic)
+        except Exception as e: # Catch-all for other unexpected errors from process_message
+            logger.error(f"Unexpected error in process_message_with_retry for key {message_key} from {topic} P:{partition} O:{offset}: {e}", exc_info=True)
+            await self._send_to_dlq(message_key, message_value, "unexpected_processing_error", str(e), original_topic=topic)
+            # If _send_to_dlq raises, that will propagate to the main consume loop.
+
+
     async def process_message(self, message_key: Optional[str], message_value: Dict[str, Any]):
         """
-        Processes a single CHART_CALCULATED event.
+        Core logic for processing a single CHART_CALCULATED event.
+        This method should raise exceptions for errors to be handled by process_message_with_retry.
         """
-        logger.info(f"Received CHART_CALCULATED event. Key: {message_key}, Value (keys): {list(message_value.keys())}")
+        # Logger call moved to _process_logic in process_message_with_retry to include attempt number
+        # logger.info(f"Processing CHART_CALCULATED event. Key: {message_key}, Value (keys): {list(message_value.keys())}")
 
         user_id = message_key
         if not user_id:
-            logger.error("CHART_CALCULATED event missing user_id in Kafka message key. Skipping.")
-            return
+            # This is a malformed message, should be caught by process_message_with_retry and sent to DLQ.
+            logger.error("CHART_CALCULATED event missing user_id in Kafka message key.")
+            raise ValueError("CHART_CALCULATED event missing user_id in Kafka message key.")
 
-        # Assuming the message_value contains both astrology and human design results,
-        # and the original request data.
-        # The structure from kafka_producer.py was:
-        # { "calculation_type": "astro/hd/both", "request_payload": {...}, "result_summary": {...}, ... }
-        # Let's assume result_summary contains distinct keys for 'astrology_chart' and 'human_design_chart'.
+        request_payload_dict = message_value.get("request_payload")
+        if not request_payload_dict:
+            logger.error(f"Missing 'request_payload' in CHART_CALCULATED event for user {user_id}.")
+            raise ValueError(f"Missing 'request_payload' in CHART_CALCULATED event for user {user_id}.") # Persistent error
 
-        try:
-            request_payload_dict = message_value.get("request_payload")
-            if not request_payload_dict:
-                logger.error(f"Missing 'request_payload' in CHART_CALCULATED event for user {user_id}. Skipping.")
-                return
-            birth_data = CalculationRequest(**request_payload_dict)
+        # Pydantic validation will occur here. If it fails, ValidationError will be raised.
+        birth_data = CalculationRequest(**request_payload_dict)
+        result_summary = message_value.get("result_summary", {})
 
-            result_summary = message_value.get("result_summary", {})
+        # Process Astrology Chart if present
+        astro_chart_data = result_summary.get("astrology_chart")
+        if astro_chart_data:
+            if isinstance(astro_chart_data.get('planetary_positions'), list):
+                 astro_chart_data['planetary_positions'] = [dict(p) for p in astro_chart_data['planetary_positions']]
+            if isinstance(astro_chart_data.get('house_cusps'), list):
+                 astro_chart_data['house_cusps'] = [dict(h) for h in astro_chart_data['house_cusps']]
+            if isinstance(astro_chart_data.get('aspects'), list):
+                 astro_chart_data['aspects'] = [dict(a) for a in astro_chart_data['aspects']]
+            if astro_chart_data.get('north_node') and isinstance(astro_chart_data['north_node'], dict):
+                 astro_chart_data['north_node'] = dict(astro_chart_data['north_node'])
 
-            # Process Astrology Chart if present
-            astro_chart_data = result_summary.get("astrology_chart")
-            if astro_chart_data:
-                # Ensure nested structures are dictionaries before passing to Pydantic
-                if isinstance(astro_chart_data.get('planetary_positions'), list):
-                     astro_chart_data['planetary_positions'] = [dict(p) for p in astro_chart_data['planetary_positions']]
-                if isinstance(astro_chart_data.get('house_cusps'), list):
-                     astro_chart_data['house_cusps'] = [dict(h) for h in astro_chart_data['house_cusps']]
-                if isinstance(astro_chart_data.get('aspects'), list):
-                     astro_chart_data['aspects'] = [dict(a) for a in astro_chart_data['aspects']]
-                if astro_chart_data.get('north_node') and isinstance(astro_chart_data['north_node'], dict):
-                     astro_chart_data['north_node'] = dict(astro_chart_data['north_node'])
+            astro_chart_obj = AstrologyChartResponse(**astro_chart_data) # Can raise ValidationError
+            await self._process_astro_chart(user_id, birth_data, astro_chart_obj) # Can raise DAOException, Neo4jServiceUnavailable
+        else:
+            logger.info(f"No astrology_chart data in CHART_CALCULATED event for user {user_id}.")
 
-                astro_chart_obj = AstrologyChartResponse(**astro_chart_data)
-                await self._process_astro_chart(user_id, birth_data, astro_chart_obj)
-            else:
-                logger.info(f"No astrology_chart data in CHART_CALCULATED event for user {user_id}.")
+        # Process Human Design Chart if present
+        hd_chart_data = result_summary.get("human_design_chart")
+        if hd_chart_data:
+            if isinstance(hd_chart_data.get('conscious_sun_gate'), dict):
+                 hd_chart_data['conscious_sun_gate'] = dict(hd_chart_data['conscious_sun_gate'])
+            if isinstance(hd_chart_data.get('unconscious_sun_gate'), dict):
+                 hd_chart_data['unconscious_sun_gate'] = dict(hd_chart_data['unconscious_sun_gate'])
+            if isinstance(hd_chart_data.get('defined_centers'), list):
+                 hd_chart_data['defined_centers'] = [dict(c) for c in hd_chart_data['defined_centers']]
+            if isinstance(hd_chart_data.get('channels'), list):
+                 hd_chart_data['channels'] = [dict(c) for c in hd_chart_data['channels']]
+            if isinstance(hd_chart_data.get('gates'), list):
+                 hd_chart_data['gates'] = [dict(g) for g in hd_chart_data['gates']]
 
-            # Process Human Design Chart if present
-            hd_chart_data = result_summary.get("human_design_chart")
-            if hd_chart_data:
-                 # Ensure nested structures are dictionaries
-                if isinstance(hd_chart_data.get('conscious_sun_gate'), dict):
-                     hd_chart_data['conscious_sun_gate'] = dict(hd_chart_data['conscious_sun_gate'])
-                if isinstance(hd_chart_data.get('unconscious_sun_gate'), dict):
-                     hd_chart_data['unconscious_sun_gate'] = dict(hd_chart_data['unconscious_sun_gate'])
-                if isinstance(hd_chart_data.get('defined_centers'), list):
-                     hd_chart_data['defined_centers'] = [dict(c) for c in hd_chart_data['defined_centers']]
-                if isinstance(hd_chart_data.get('channels'), list):
-                     hd_chart_data['channels'] = [dict(c) for c in hd_chart_data['channels']]
-                if isinstance(hd_chart_data.get('gates'), list):
-                     hd_chart_data['gates'] = [dict(g) for g in hd_chart_data['gates']]
+            hd_chart_obj = HumanDesignChartResponse(**hd_chart_data) # Can raise ValidationError
+            await self._process_hd_chart(user_id, birth_data, hd_chart_obj) # Can raise DAOException, Neo4jServiceUnavailable
+        else:
+            logger.info(f"No human_design_chart data in CHART_CALCULATED event for user {user_id}.")
 
-                hd_chart_obj = HumanDesignChartResponse(**hd_chart_data)
-                await self._process_hd_chart(user_id, birth_data, hd_chart_obj)
-            else:
-                logger.info(f"No human_design_chart data in CHART_CALCULATED event for user {user_id}.")
-
-            logger.info(f"Successfully processed CHART_CALCULATED event for user_id: {user_id}")
-
-        except Exception as e:
-            logger.error(f"Error processing CHART_CALCULATED message for user {user_id}: {e}", exc_info=True)
-            # Implement DLQ or other error handling strategy here
+        # Logger call moved to process_message_with_retry upon successful completion
+        # logger.info(f"Successfully processed CHART_CALCULATED event for user_id: {user_id}")
 
     async def consume(self):
         logger.info(f"Starting ChartCalculatedConsumer for topic: {CHART_CALCULATED_TOPIC}")
@@ -270,28 +348,55 @@ class ChartCalculatedConsumer:
         try:
             await self.consumer.start()
             logger.info(f"AIOKafkaConsumer started for topic {CHART_CALCULATED_TOPIC}, group {self.group_id}")
-            # No explicit subscribe needed when topics are passed to constructor
+            await self.dlq_producer.start()
+            self._dlq_producer_started = True
+            logger.info(f"AIOKafkaProducer for DLQ started.")
 
             async for message in self.consumer:
                 if not self._running:
                     break
                 logger.debug(f"Received raw message: Topic={message.topic}, Partition={message.partition}, Offset={message.offset}, Key={message.key}, Value={message.value[:100]}...") # Log snippet
+                processed_successfully = False
                 try:
-                    # Deserialization is now handled by AIOKafkaConsumer config
-                    key = message.key
-                    value = message.value
+                    key = message.key # Already deserialized by AIOKafkaConsumer
+                    value = message.value # Already deserialized by AIOKafkaConsumer
 
-                    # Optional: Check event type if it's in headers or payload
-                    # event_type = value.get("event_type") or getattr(message.headers, 'get', lambda k,d: d)("event_type", None)
-                    # if event_type == EXPECTED_EVENT_TYPE:
-                    await self.process_message(key, value)
-                    # else:
-                    #    logger.debug(f"Skipping message with type {event_type} on topic {CHART_CALCULATED_TOPIC}")
+                    # process_message_with_retry will handle internal errors, retries, and DLQ.
+                    # If it returns normally, the message is considered handled (either processed or DLQ'd).
+                    # If it raises an exception (e.g., DLQ send failed), then processed_successfully remains False.
+                    await self.process_message_with_retry(key, value, message.topic, message.partition, message.offset)
+                    processed_successfully = True
 
-                except json.JSONDecodeError as e: # Should be handled by deserializer now, but keep as fallback
-                    logger.error(f"Failed to decode JSON message from {CHART_CALCULATED_TOPIC}: {e}. Value: {message.value[:200]}")
-                except Exception as e:
-                    logger.error(f"Unexpected error processing message in consumer loop for {CHART_CALCULATED_TOPIC}: {e}", exc_info=True)
+                except json.JSONDecodeError as e: # Should be caught by deserializer, but as a safeguard
+                    logger.error(f"FATAL: JSONDecodeError directly in consume loop for {message.topic} P:{message.partition} O:{message.offset}. Value (raw): {message.value}. Error: {e}", exc_info=True)
+                    # This error means the message couldn't even be passed to process_message_with_retry
+                    # Attempt to send to DLQ, but value might be problematic if not bytes/str
+                    # The consumer's value_deserializer already tried json.loads(v.decode('utf-8'))
+                    # So, message.value here is likely the raw bytes that failed decoding.
+                    raw_value_for_dlq = message.value
+                    if isinstance(raw_value_for_dlq, bytes):
+                        try:
+                            raw_value_for_dlq = raw_value_for_dlq.decode('utf-8', errors='replace') # Try to decode for DLQ
+                        except Exception:
+                            pass # Keep as bytes if decode fails
+
+                    try:
+                        await self._send_to_dlq(message.key, raw_value_for_dlq, "json_decode_error_in_consume_loop", str(e), original_topic=message.topic)
+                        processed_successfully = True # DLQ attempt made
+                    except Exception as dlq_e:
+                        logger.critical(f"Failed to send undecodable message to DLQ for key {message.key}, topic {message.topic}. DLQ Error: {dlq_e}", exc_info=True)
+                        processed_successfully = False # DLQ failed, do not commit
+                except Exception as e: # Catch-all for errors from process_message_with_retry (e.g. DLQ send failure) or other unexpected issues
+                    logger.error(f"Outer exception processing message for key {message.key} on {message.topic} P:{message.partition} O:{message.offset}: {e}", exc_info=True)
+                    # If process_message_with_retry raised (e.g. DLQ send failed), processed_successfully will be False.
+                    # No need to call _send_to_dlq here again as process_message_with_retry should have tried.
+                    processed_successfully = False # Ensure it's false so offset is not committed
+
+                if processed_successfully:
+                    await self.consumer.commit() # Manually commit offset
+                    logger.debug(f"Committed offset {message.offset} for partition {message.partition} on topic {message.topic}")
+                else:
+                    logger.error(f"Message for key {message.key} on {message.topic} P:{message.partition} O:{message.offset} was not processed successfully and not sent to DLQ. Offset will not be committed.")
 
                 if not self._running: # Check again in case stop was called during processing
                     break
@@ -303,21 +408,28 @@ class ChartCalculatedConsumer:
             logger.info(f"Stopping ChartCalculatedConsumer for topic: {CHART_CALCULATED_TOPIC}.")
             if self.consumer:
                  await self.consumer.stop()
+            if self._dlq_producer_started and self.dlq_producer:
+                await self.dlq_producer.stop()
+                logger.info("DLQ KafkaProducer stopped.")
             self._running = False
 
     async def start_consuming(self):
         """Starts the consumer loop as a background task."""
         if not self._consumer_task or self._consumer_task.done():
-             self._consumer_task = asyncio.create_task(self.consume())
-             logger.info("Chart consumer task created.")
+            self._consumer_task = asyncio.create_task(self.consume())
+            logger.info("Chart consumer task created.")
         else:
-             logger.warning("Chart consumer task already running.")
+            logger.warning("Chart consumer task already running.")
 
     async def stop(self):
         logger.info("ChartCalculatedConsumer stop requested.")
         self._running = False
         if self.consumer:
             await self.consumer.stop() # Ensure consumer is stopped
+        if self._dlq_producer_started and self.dlq_producer:
+            await self.dlq_producer.stop()
+            logger.info("DLQ KafkaProducer stopped during explicit stop call.")
+            self._dlq_producer_started = False
         if self._consumer_task:
             try:
                 # Wait briefly for the task to finish after setting _running to False

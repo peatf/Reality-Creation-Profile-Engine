@@ -2,8 +2,8 @@ from datetime import datetime, timezone
 from skyfield.api import Topos, load
 from skyfield.framelib import ecliptic_frame
 
-from app.schemas.request_schemas import CalculationRequest # Import from new location
-from app.schemas.astrology_schemas import AstrologyChartResponse, PlanetaryPosition, HouseCusp, Aspect
+from ..schemas.request_schemas import CalculationRequest # Use relative import
+from ..schemas.astrology_schemas import AstrologyChartResponse, PlanetaryPosition, HouseCusp, Aspect # Use relative import
 
 # Load ephemeris data (Skyfield will download it if not present)
 # Using DE421, a common JPL ephemeris. DE440 or DE441 are newer alternatives.

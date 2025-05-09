@@ -1,7 +1,6 @@
 import pytest
 import pytest_asyncio
 from unittest.mock import AsyncMock, MagicMock, patch
-import json
 import services.kg.app.crud.base_dao as base_dao
 from aiokafka.structs import ConsumerRecord
 from aiokafka import AIOKafkaProducer, AIOKafkaConsumer
@@ -77,7 +76,6 @@ def mock_neo4j_session(monkeypatch):
     yield {
         "session": fake_session,
         "cursor": mock_cursor, # Renamed from tx_run_result for clarity
-        "tx": mock_tx, # Add the mock transaction object
         "context_manager": fake_cm,
         "driver": mock_driver_instance # Added driver mock just in case
     }

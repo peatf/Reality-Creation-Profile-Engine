@@ -66,21 +66,44 @@ def test_read_root():
     """Test the health check endpoint."""
     response = client.get("/")
     assert response.status_code == 200
-    assert response.json() == {"status": "ok", "message": "Reality Creation Profile Engine is running."}
+    assert response.json() == {"status": "ok", "message": "Reality Creation Profile Engine is running.", "event_sent": True}
 
 @patch('main.assessment_scorer.generate_complete_results', return_value=MOCK_ASSESSMENT_RESULTS)
-@patch('main.astro_calc.calculate_chart', return_value=MOCK_ASTRO_CHART)
-@patch('main.astro_parser.get_relevant_factors', return_value=MOCK_ASTRO_FACTORS)
-@patch('main.hd_client.get_human_design_chart', new_callable=AsyncMock, return_value=MOCK_HD_RAW_DATA) # Mock async function
-@patch('main.hd_interpreter.interpret_human_design_chart', return_value=MOCK_HD_INTERPRETED)
-@patch('main.kg_population.create_user_profile_graph', new_callable=AsyncMock, return_value=MOCK_GRAPH) # Mock async function
-@patch('main.synthesis_engine.find_user_uri', return_value=f"http://example.com/rcpe#{TEST_PROFILE_ID}") # Correct target module
-@patch('main.user_profile_data', {}) # Ensure clean storage for test
-def test_create_profile_success(mock_find_uri, mock_create_graph, mock_interpret_hd, mock_get_hd, mock_astro_factors, mock_astro_calc, mock_assess_score):
+@patch('main.geocoding_service.get_coordinates') # Mock geocoding
+@patch('main.timezone_service.get_historical_timezone_info') # Mock timezone
+@patch('main.http_client.post', new_callable=AsyncMock) # Mock the HTTP client's post method
+@patch('main.kg_population.create_user_profile_graph', new_callable=AsyncMock, return_value=MOCK_GRAPH)
+@patch('main.synthesis_engine.find_user_uri', return_value=f"http://example.com/rcpe#{TEST_PROFILE_ID}")
+@patch('main.user_profile_data', {})
+def test_create_profile_success(
+    mock_user_profile_data_dict,
+    mock_find_uri,
+    mock_create_graph,
+    mock_http_post,
+    mock_get_tz,
+    mock_get_coords,
+    mock_assess_score
+):
     """Test successful profile creation via POST /profile/create."""
+    # Configure mock HTTP responses for chart_calc service
+    # First call to http_client.post is for astro, second for HD
+    mock_astro_response = AsyncMock()
+    mock_astro_response.json.return_value = MOCK_ASTRO_FACTORS # This is what main.py stores
+    mock_astro_response.raise_for_status = MagicMock()
+
+    mock_hd_response = AsyncMock()
+    mock_hd_response.json.return_value = MOCK_HD_INTERPRETED # This is what main.py stores
+    mock_hd_response.raise_for_status = MagicMock()
+    
+    mock_http_post.side_effect = [mock_astro_response, mock_hd_response]
+
+    # Mock geocoding and timezone results
+    mock_get_coords.return_value = MagicMock(latitude=51.5074, longitude=-0.1278)
+    mock_get_tz.return_value = MagicMock(iana_timezone="Europe/London", utc_offset_str="+00:00")
+
     response = client.post("/profile/create", json=TEST_REQUEST_DATA)
 
-    assert response.status_code == 201
+    assert response.status_code == 201, response.json()
     assert "profile_id" in response.json()
     profile_id = response.json()["profile_id"]
     assert profile_id == TEST_PROFILE_ID
@@ -88,9 +111,13 @@ def test_create_profile_success(mock_find_uri, mock_create_graph, mock_interpret
 
     # Check mocks were called
     mock_assess_score.assert_called_once()
-    mock_astro_calc.assert_called_once()
-    mock_get_hd.assert_called_once()
-    mock_interpret_hd.assert_called_once_with(MOCK_HD_RAW_DATA)
+    mock_get_coords.assert_called_once()
+    mock_get_tz.assert_called_once()
+    
+    assert mock_http_post.call_count == 2
+    mock_http_post.assert_any_call("/astro/chart", json=ANY)
+    mock_http_post.assert_any_call("/human-design/chart", json=ANY)
+    
     mock_create_graph.assert_called_once()
     mock_find_uri.assert_called_once()
 
@@ -99,26 +126,39 @@ def test_create_profile_success(mock_find_uri, mock_create_graph, mock_interpret
     assert profile_id in user_profile_data
     assert user_profile_data[profile_id]["graph"] == MOCK_GRAPH
     assert user_profile_data[profile_id]["assessment_results"] == MOCK_ASSESSMENT_RESULTS
+    assert user_profile_data[profile_id]["astro_factors"] == MOCK_ASTRO_FACTORS
     assert user_profile_data[profile_id]["hd_interpreted"] == MOCK_HD_INTERPRETED
 
-@patch('main.kg_population.create_user_profile_graph', new_callable=AsyncMock, return_value=None) # Simulate graph creation failure
+@patch('main.geocoding_service.get_coordinates')
+@patch('main.timezone_service.get_historical_timezone_info')
+@patch('main.http_client.post', new_callable=AsyncMock)
 @patch('main.assessment_scorer.generate_complete_results', return_value=MOCK_ASSESSMENT_RESULTS)
-@patch('main.astro_calc.calculate_chart', return_value=MOCK_ASTRO_CHART)
-@patch('main.hd_client.get_human_design_chart', new_callable=AsyncMock, return_value=MOCK_HD_RAW_DATA)
-@patch('main.hd_interpreter.interpret_human_design_chart', return_value=MOCK_HD_INTERPRETED)
-def test_create_profile_graph_failure(mock_interpret_hd, mock_get_hd, mock_astro_calc, mock_assess_score, mock_create_graph):
+@patch('main.kg_population.create_user_profile_graph', new_callable=AsyncMock, return_value=None) # Simulate graph creation failure
+def test_create_profile_graph_failure(
+    mock_create_graph,
+    mock_assess_score,
+    mock_http_post,
+    mock_get_tz,
+    mock_get_coords
+):
     """Test POST /profile/create when graph population fails."""
     response = client.post("/profile/create", json=TEST_REQUEST_DATA)
     assert response.status_code == 500
     assert "Failed to create profile graph" in response.json()["detail"]
 
-@patch('main.assessment_scorer.generate_complete_results', side_effect=Exception("Assessment Error")) # Simulate calculation error
-def test_create_profile_calculation_error(mock_assess_score):
-    """Test POST /profile/create when an internal calculation fails."""
+@patch('main.geocoding_service.get_coordinates')
+@patch('main.timezone_service.get_historical_timezone_info')
+@patch('main.assessment_scorer.generate_complete_results', side_effect=Exception("Assessment Error"))
+def test_create_profile_calculation_error(mock_assess_score, mock_get_tz, mock_get_coords): # Add geo/tz mocks
+    """Test POST /profile/create when an internal calculation fails (e.g., assessment)."""
+    # Mock geocoding and timezone to allow the flow to reach assessment
+    mock_get_coords.return_value = MagicMock(latitude=51.5074, longitude=-0.1278)
+    mock_get_tz.return_value = MagicMock(iana_timezone="Europe/London", utc_offset_str="+00:00")
+
     response = client.post("/profile/create", json=TEST_REQUEST_DATA)
-    assert response.status_code == 500
+    assert response.status_code == 500, response.json()
     assert "Internal server error" in response.json()["detail"]
-    assert "Assessment Error" in response.json()["detail"] # Check error message propagation
+    assert "Assessment Error" in response.json()["detail"]
 
 def test_get_profile_not_found():
     """Test GET /profile/{profile_id} for a non-existent ID."""

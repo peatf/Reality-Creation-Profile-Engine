@@ -12,6 +12,7 @@ WORKDIR /app/services/kg
 
 # Install system dependencies if any (e.g., for specific drivers)
 # RUN apt-get update && apt-get install -y --no-install-recommends some-package && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y --no-install-recommends curl && rm -rf /var/lib/apt/lists/*
 
 # Install Python dependencies
 # Copy only requirements first to leverage Docker cache
@@ -31,8 +32,8 @@ COPY ./services/kg /app/services/kg/
 ENV PYTHONPATH "${PYTHONPATH}:/app"
 
 # Command to run the application
-# This runs the main script which starts the consumers
-CMD ["python", "/app/services/kg/main.py"]
+# This runs the main script which starts the consumers and FastAPI app
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
 
 # Optional: Add health check script and use HEALTHCHECK instruction later
 # COPY ./services/kg/healthcheck.sh /app/healthcheck.sh

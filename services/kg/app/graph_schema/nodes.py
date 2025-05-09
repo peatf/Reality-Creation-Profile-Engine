@@ -46,6 +46,7 @@ class HDFeatureNode(NodeBase):
 class TypologyResultNode(NodeBase):
     typology_name: str = Field(..., description="Name of the typology system (e.g., 'Myers-Briggs', 'Enneagram').")
     assessment_id: str = Field(..., description="Identifier for the specific assessment instance.")
+    profile_id: Optional[str] = Field(None, description="Associated profile ID from the PersonNode.") # Made Optional
     # user_id: str # This will be linked via relationship to PersonNode
     score: Optional[str] = Field(None, description="Score or result (e.g., 'INTJ', 'Type 5').") # Using str for flexibility
     confidence: Optional[float] = Field(None, description="Confidence level of the result, if applicable.")

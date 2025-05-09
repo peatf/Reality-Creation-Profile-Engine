@@ -1,193 +1,252 @@
 import pytest
 import pytest_asyncio
-from unittest.mock import MagicMock, patch, AsyncMock # Add AsyncMock
+from unittest.mock import patch, AsyncMock
+import json
 
 from services.kg.app.graph_schema.nodes import TypologyResultNode
 from services.kg.app.crud.typology_crud import (
-    create_typology_result,
+    upsert_typology_result,         # Changed
     get_typology_result_by_assessment_id,
     get_typology_results_by_name,
-    update_typology_result,
+    update_typology_result_properties, # Changed
     delete_typology_result
 )
 from services.kg.app.crud.base_dao import (
-    NodeCreationError,
     NodeNotFoundError,
     UpdateError,
     DeletionError,
-    UniqueConstraintViolationError,
+    UniqueConstraintViolationError, # Should not happen with MERGE on key
     DAOException
 )
+from services.kg.app.graph_schema.constants import TYPOLOGYRESULT_LABEL
 
-import json # Add json import
 
 # Sample TypologyResult Data
-SAMPLE_TYPOLOGY_RAW_DATA = {
-    "assessment_id": "assess_xyz_123",
-    "typology_name": "TestEnneagram",
-    "score": "Type 9",
-    "confidence": 0.88,
-    "details": {"wing": "1", "notes": "Peacekeeper"}
-}
-# Removed module-level instantiation causing collection error
-# SAMPLE_TYPOLOGY_NODE = TypologyResultNode(**SAMPLE_TYPOLOGY_MODEL_DATA)
+ASSESSMENT_ID = "assess_xyz_123"
+TYPOLOGY_NAME = "TestEnneagram"
+INITIAL_SCORE = "Type 9"
+INITIAL_CONFIDENCE = 0.88
+INITIAL_DETAILS_DICT = {"wing": "1", "notes": "Peacekeeper"}
+INITIAL_DETAILS_JSON_STR = json.dumps(INITIAL_DETAILS_DICT)
 
 @pytest_asyncio.fixture
-async def sample_typology_node_fixture():
-    # Create the model within the fixture, ensuring details are serialized
-    model_data = {
-         **SAMPLE_TYPOLOGY_RAW_DATA,
-         "details": json.dumps(SAMPLE_TYPOLOGY_RAW_DATA["details"])
+def sample_typology_data() -> dict:
+    """Raw data for DB mock return, details as JSON string."""
+    return {
+        "assessment_id": ASSESSMENT_ID,
+        "typology_name": TYPOLOGY_NAME,
+        "score": INITIAL_SCORE,
+        "confidence": INITIAL_CONFIDENCE,
+        "details": INITIAL_DETAILS_JSON_STR # Stored as JSON string in DB
     }
-    return TypologyResultNode(**model_data)
 
+@pytest_asyncio.fixture
+def sample_typology_node(sample_typology_data: dict) -> TypologyResultNode:
+    """TypologyResultNode instance for passing to CRUD functions, details as dict."""
+    data_for_model = sample_typology_data.copy()
+    data_for_model["details"] = json.loads(sample_typology_data["details"])
+    return TypologyResultNode(**data_for_model)
+
+
+# --- upsert_typology_result Tests ---
 @pytest.mark.asyncio
-async def test_create_typology_result_success(mock_neo4j_driver, sample_typology_node_fixture: TypologyResultNode):
-    mock_tx_run_result = mock_neo4j_driver["tx_run_result"]
-    # Mock DB returns properties as they would be stored (details as string)
-    mock_db_return_data = {
-        **SAMPLE_TYPOLOGY_RAW_DATA,
-        "details": json.dumps(SAMPLE_TYPOLOGY_RAW_DATA["details"])
-    }
-    mock_tx_run_result.single.return_value = {"tr": mock_db_return_data}
+async def test_upsert_typology_result_create_success(mock_neo4j_session, sample_typology_node: TypologyResultNode, sample_typology_data: dict):
+    """Test successful creation of a TypologyResultNode via upsert."""
+    mock_cursor = mock_neo4j_session["cursor"]
+    mock_session_obj = mock_neo4j_session["session"]
+    mock_tx = mock_neo4j_session["tx"] # Get mock_tx from the fixture yield
 
-    created_result = await create_typology_result(sample_typology_node_fixture) # Pass the validated model
+    mock_cursor.single.return_value = {"tr": sample_typology_data}
 
+    # --- Act ---
+    created_result = await upsert_typology_result(sample_typology_node)
+
+    # --- Assert ---
     assert created_result is not None
-    assert created_result.assessment_id == sample_typology_node_fixture.assessment_id
-    mock_neo4j_driver["session"].execute_write.assert_called_once()
+    assert created_result.assessment_id == ASSESSMENT_ID
+    assert created_result.score == INITIAL_SCORE
+    assert created_result.details == INITIAL_DETAILS_DICT
+
+    # Assert mock calls *after* the function call
+    mock_session_obj.execute_write.assert_called_once()
+    mock_tx.run.assert_called_once()
+    called_query = mock_tx.run.call_args[0][0]
+    assert f"MERGE (tr:{TYPOLOGYRESULT_LABEL} {{assessment_id: $assessment_id}})" in called_query
+    assert "ON CREATE SET tr = $create_props" in called_query
+    assert "ON MATCH SET tr += $match_props" in called_query
+    
+    call_params = mock_tx.run.call_args[0][1]
+    assert call_params["assessment_id"] == ASSESSMENT_ID
+    assert call_params["create_props"]["score"] == INITIAL_SCORE
+    assert call_params["match_props"]["score"] == INITIAL_SCORE
+
 
 @pytest.mark.asyncio
-async def test_create_typology_result_already_exists(mock_neo4j_driver, sample_typology_node_fixture: TypologyResultNode):
-    mock_session = mock_neo4j_driver["session"]
-    mock_session.execute_write.side_effect = UniqueConstraintViolationError("TypologyResult already exists")
+async def test_upsert_typology_result_update_success(mock_neo4j_session, sample_typology_node: TypologyResultNode):
+    mock_cursor = mock_neo4j_session["cursor"]
+    mock_session_obj = mock_neo4j_session["session"]
+    mock_tx = mock_neo4j_session["tx"] # Get mock_tx from the fixture yield
 
-    with pytest.raises(NodeCreationError, match="already exists"):
-        await create_typology_result(sample_typology_node_fixture)
+    updated_score = "Type 9w1"
+    updated_details_dict = {"wing": "1", "notes": "Updated Peacekeeper", "level": 5}
+    
+    updated_node_input = sample_typology_node.model_copy(update={
+        "score": updated_score,
+        "details": updated_details_dict
+    })
 
-@pytest.mark.asyncio
-async def test_create_typology_result_dao_exception(mock_neo4j_driver, sample_typology_node_fixture: TypologyResultNode):
-    mock_session = mock_neo4j_driver["session"]
-    mock_session.execute_write.side_effect = DAOException("Generic DB error")
-
-    with pytest.raises(NodeCreationError, match="Database error creating TypologyResult"):
-        await create_typology_result(sample_typology_node_fixture)
-
-@pytest.mark.asyncio
-async def test_get_typology_result_by_assessment_id_found(mock_neo4j_driver, sample_typology_node_fixture: TypologyResultNode):
-    mock_tx_run_result = mock_neo4j_driver["tx_run_result"]
-    # Assume DB returns properties with details as string
-    mock_db_return_data = {
-        **SAMPLE_TYPOLOGY_RAW_DATA,
-        "details": json.dumps(SAMPLE_TYPOLOGY_RAW_DATA["details"])
+    db_return_data = {
+        "assessment_id": ASSESSMENT_ID,
+        "typology_name": TYPOLOGY_NAME,
+        "score": updated_score,
+        "confidence": INITIAL_CONFIDENCE, # Assuming confidence wasn't updated
+        "details": json.dumps(updated_details_dict)
     }
-    mock_tx_run_result.data.return_value = [{"tr": mock_db_return_data}]
+    mock_cursor.single.return_value = {"tr": db_return_data}
 
-    retrieved_result = await get_typology_result_by_assessment_id(sample_typology_node_fixture.assessment_id)
+    # --- Act ---
+    updated_result = await upsert_typology_result(updated_node_input)
 
-    assert retrieved_result is not None
-    assert retrieved_result.assessment_id == sample_typology_node_fixture.assessment_id
-    mock_neo4j_driver["session"].execute_read.assert_called_once()
+    # --- Assert ---
+    assert updated_result is not None
+    assert updated_result.assessment_id == ASSESSMENT_ID
+    assert updated_result.score == updated_score
+    assert updated_result.details == updated_details_dict
+
+    # Assert mock calls *after* the function call
+    mock_session_obj.execute_write.assert_called_once()
+    mock_tx.run.assert_called_once() # Check transaction ran
+    call_params = mock_tx.run.call_args[0][1]
+    assert call_params["match_props"]["score"] == updated_score
+    assert call_params["match_props"]["details"] == updated_details_dict
+
 
 @pytest.mark.asyncio
-async def test_get_typology_result_by_assessment_id_not_found(mock_neo4j_driver):
-    mock_tx_run_result = mock_neo4j_driver["tx_run_result"]
-    mock_tx_run_result.data.return_value = []
+async def test_upsert_typology_result_dao_exception(mock_neo4j_session, sample_typology_node: TypologyResultNode):
+    mock_session_obj = mock_neo4j_session["session"]
+    mock_session_obj.execute_write.side_effect = DAOException("Generic DB error for upsert typology")
+
+    with pytest.raises(DAOException, match="Database error upserting TypologyResult"):
+        await upsert_typology_result(sample_typology_node)
+
+# --- get_typology_result_by_assessment_id Tests ---
+@pytest.mark.asyncio
+async def test_get_typology_result_by_assessment_id_found(mock_neo4j_session, sample_typology_data: dict):
+    mock_cursor = mock_neo4j_session["cursor"]
+    mock_session_obj = mock_neo4j_session["session"]
+    mock_tx = mock_neo4j_session["tx"] # Get mock_tx from the fixture yield
+
+    mock_cursor.data.return_value = [{"tr": sample_typology_data}]
+
+    # --- Act ---
+    retrieved_result = await get_typology_result_by_assessment_id(ASSESSMENT_ID)
+
+    # --- Assert ---
+    assert retrieved_result is not None
+    assert retrieved_result.assessment_id == ASSESSMENT_ID
+    assert retrieved_result.details == INITIAL_DETAILS_DICT
+
+    # Assert mock calls *after* the function call
+    mock_session_obj.execute_read.assert_called_once()
+    mock_tx.run.assert_called_once()
+    called_query = mock_tx.run.call_args[0][0]
+    assert f"MATCH (tr:{TYPOLOGYRESULT_LABEL} {{assessment_id: $assessment_id}})" in called_query
+
+@pytest.mark.asyncio
+async def test_get_typology_result_by_assessment_id_not_found(mock_neo4j_session):
+    mock_cursor = mock_neo4j_session["cursor"]
+    mock_cursor.data.return_value = []
 
     retrieved_result = await get_typology_result_by_assessment_id("non_existent_assessment")
     assert retrieved_result is None
 
+# --- get_typology_results_by_name Tests ---
 @pytest.mark.asyncio
-async def test_get_typology_results_by_name_found(mock_neo4j_driver, sample_typology_node_fixture: TypologyResultNode):
-    mock_tx_run_result = mock_neo4j_driver["tx_run_result"]
-    # Assume DB returns properties with details as string
-    mock_db_return_data = {
-        **SAMPLE_TYPOLOGY_RAW_DATA,
-        "details": json.dumps(SAMPLE_TYPOLOGY_RAW_DATA["details"])
-    }
-    mock_tx_run_result.data.return_value = [{"tr": mock_db_return_data}]
+async def test_get_typology_results_by_name_found(mock_neo4j_session, sample_typology_data: dict):
+    mock_cursor = mock_neo4j_session["cursor"]
+    mock_cursor.data.return_value = [{"tr": sample_typology_data}]
 
-    results = await get_typology_results_by_name(sample_typology_node_fixture.typology_name)
+    results = await get_typology_results_by_name(TYPOLOGY_NAME)
     assert len(results) == 1
-    assert results[0].assessment_id == sample_typology_node_fixture.assessment_id
+    assert results[0].assessment_id == ASSESSMENT_ID
+    assert results[0].details == INITIAL_DETAILS_DICT
 
+# --- update_typology_result_properties Tests ---
 @pytest.mark.asyncio
-async def test_get_typology_results_by_name_not_found(mock_neo4j_driver):
-    mock_tx_run_result = mock_neo4j_driver["tx_run_result"]
-    mock_tx_run_result.data.return_value = []
-    results = await get_typology_results_by_name("NonExistentTypologyName")
-    assert len(results) == 0
+async def test_update_typology_result_properties_success(mock_neo4j_session, sample_typology_data: dict):
+    mock_cursor = mock_neo4j_session["cursor"]
+    mock_session_obj = mock_neo4j_session["session"]
+    mock_tx = mock_neo4j_session["tx"] # Get mock_tx from the fixture yield
 
-@pytest.mark.asyncio
-async def test_get_typology_result_dao_exception(mock_neo4j_driver):
-    mock_session = mock_neo4j_driver["session"]
-    mock_session.execute_read.side_effect = DAOException("DB error during get")
-    
-    result_node = await get_typology_result_by_assessment_id("any_assessment_id")
-    assert result_node is None
-    results_list = await get_typology_results_by_name("any_typology_name")
-    assert results_list == []
+    update_payload = {"score": "Type 9w1 Updated", "confidence": 0.99}
 
+    expected_db_data_after_update = sample_typology_data.copy()
+    expected_db_data_after_update.update(update_payload)
+    # details remain the initial JSON string as it wasn't in update_payload
+    mock_cursor.single.return_value = {"tr": expected_db_data_after_update}
 
-@pytest.mark.asyncio
-async def test_update_typology_result_success(mock_neo4j_driver, sample_typology_node_fixture: TypologyResultNode):
-    mock_tx_run_result = mock_neo4j_driver["tx_run_result"]
-    updated_score = "Type 9w1"
-    
-    expected_updated_raw_data = SAMPLE_TYPOLOGY_RAW_DATA.copy()
-    expected_updated_raw_data["score"] = updated_score
-    # Mock DB return (details as string)
-    mock_db_return_data = {
-         **expected_updated_raw_data,
-         "details": json.dumps(expected_updated_raw_data["details"]) # Keep original details string
-    }
-    mock_tx_run_result.single.return_value = {"tr": mock_db_return_data}
+    # --- Act ---
+    updated_result = await update_typology_result_properties(ASSESSMENT_ID, update_payload)
 
-    # Pass the dict to update
-    updated_result = await update_typology_result(sample_typology_node_fixture.assessment_id, {"score": updated_score})
-
+    # --- Assert ---
     assert updated_result is not None
-    assert updated_result.score == updated_score
-    mock_neo4j_driver["session"].execute_write.assert_called_once()
+    assert updated_result.score == "Type 9w1 Updated"
+    assert updated_result.confidence == 0.99
+    assert updated_result.details == INITIAL_DETAILS_DICT # Details unchanged
+
+    # Assert mock calls *after* the function call
+    mock_session_obj.execute_write.assert_called_once()
+    mock_tx.run.assert_called_once()
+    called_query = mock_tx.run.call_args[0][0]
+    assert f"MATCH (tr:{TYPOLOGYRESULT_LABEL} {{assessment_id: $assessment_id}})" in called_query
+    assert "SET tr += $props_to_set" in called_query
+    assert mock_tx.run.call_args[0][1]["props_to_set"] == update_payload
+
 
 @pytest.mark.asyncio
-async def test_update_typology_result_not_found(mock_neo4j_driver):
-    mock_tx_run_result = mock_neo4j_driver["tx_run_result"]
-    mock_tx_run_result.single.return_value = None
+async def test_update_typology_result_properties_not_found(mock_neo4j_session):
+    mock_cursor = mock_neo4j_session["cursor"]
+    mock_session_obj = mock_neo4j_session["session"]
+    mock_cursor.single.return_value = None
 
-    with patch('services.kg.app.crud.typology_crud.get_typology_result_by_assessment_id', AsyncMock(return_value=None)):
-        with pytest.raises(NodeNotFoundError):
-            await update_typology_result("non_existent_assessment_update", {"score": "New Score"})
+    with pytest.raises(NodeNotFoundError):
+        await update_typology_result_properties("non_existent", {"score": "New"})
+    mock_session_obj.execute_write.assert_called_once()
 
+# --- delete_typology_result Tests ---
 @pytest.mark.asyncio
-async def test_update_typology_result_dao_exception(mock_neo4j_driver):
-    mock_session = mock_neo4j_driver["session"]
-    mock_session.execute_write.side_effect = DAOException("DB error during update")
+async def test_delete_typology_result_success(mock_neo4j_session, sample_typology_node: TypologyResultNode):
+    mock_session_obj = mock_neo4j_session["session"]
+    mock_cursor = mock_neo4j_session["cursor"]
+    mock_tx = mock_neo4j_session["tx"] # Get mock_tx from the fixture yield
 
-    with pytest.raises(UpdateError, match="Database error updating TypologyResult"):
-        await update_typology_result("any_assessment_id", {"score": "New Score"})
+    with patch('services.kg.app.crud.typology_crud.get_typology_result_by_assessment_id', AsyncMock(return_value=sample_typology_node)):
+        mock_cursor.single.return_value = None
 
-@pytest.mark.asyncio
-async def test_delete_typology_result_success(mock_neo4j_driver, sample_typology_node_fixture: TypologyResultNode):
-    with patch('services.kg.app.crud.typology_crud.get_typology_result_by_assessment_id', AsyncMock(return_value=sample_typology_node_fixture)):
-        mock_neo4j_driver["tx_run_result"].single.return_value = None
+        deleted = await delete_typology_result(ASSESSMENT_ID)
 
-        deleted = await delete_typology_result(sample_typology_node_fixture.assessment_id)
+        # --- Assert ---
         assert deleted is True
-        mock_neo4j_driver["session"].execute_write.assert_called_once()
+        mock_session_obj.execute_write.assert_called_once()
+        mock_tx.run.assert_called_once() # Check transaction ran
+        called_delete_query = mock_tx.run.call_args[0][0]
+        assert f"MATCH (tr:{TYPOLOGYRESULT_LABEL} {{assessment_id: $assessment_id}})" in called_delete_query
+        assert "DETACH DELETE tr" in called_delete_query
+
 
 @pytest.mark.asyncio
-async def test_delete_typology_result_not_found(mock_neo4j_driver):
+async def test_delete_typology_result_not_found(mock_neo4j_session):
+    mock_session_obj = mock_neo4j_session["session"]
     with patch('services.kg.app.crud.typology_crud.get_typology_result_by_assessment_id', AsyncMock(return_value=None)):
-        deleted = await delete_typology_result("non_existent_assessment_delete")
+        deleted = await delete_typology_result("non_existent")
         assert deleted is False
-        mock_neo4j_driver["session"].execute_write.assert_not_called()
+        mock_session_obj.execute_write.assert_not_called()
+
 
 @pytest.mark.asyncio
-async def test_delete_typology_result_dao_exception(mock_neo4j_driver, sample_typology_node_fixture: TypologyResultNode):
-    with patch('services.kg.app.crud.typology_crud.get_typology_result_by_assessment_id', AsyncMock(return_value=sample_typology_node_fixture)):
-        mock_session = mock_neo4j_driver["session"]
-        mock_session.execute_write.side_effect = DAOException("DB error during delete")
-
+async def test_delete_typology_result_dao_exception_on_delete(mock_neo4j_session, sample_typology_node: TypologyResultNode):
+    mock_session_obj = mock_neo4j_session["session"]
+    with patch('services.kg.app.crud.typology_crud.get_typology_result_by_assessment_id', AsyncMock(return_value=sample_typology_node)):
+        mock_session_obj.execute_write.side_effect = DAOException("DB error during actual delete typology")
         with pytest.raises(DeletionError, match="Database error deleting TypologyResult"):
-            await delete_typology_result(sample_typology_node_fixture.assessment_id)
+            await delete_typology_result(ASSESSMENT_ID)

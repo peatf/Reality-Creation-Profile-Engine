@@ -2,71 +2,83 @@ import logging
 from typing import Optional, Dict, Any, List
 
 from ..graph_schema.nodes import AstroFeatureNode
-from ..graph_schema.constants import ASTROFEATURE_LABEL # Import from constants
+from ..graph_schema.constants import ASTROFEATURE_LABEL
 from .base_dao import (
     execute_read_query,
-    execute_write_query,
+    execute_merge_query, # Added
+    execute_write_query, # Kept for specific updates/deletes if not using MERGE
     DAOException,
-    NodeCreationError,
+    NodeCreationError, # May be replaced by general DAOException for upserts
     NodeNotFoundError,
     UpdateError,
     DeletionError,
-    UniqueConstraintViolationError
+    UniqueConstraintViolationError # Should be rare with MERGE on composite key
 )
 
 logger = logging.getLogger(__name__)
 
-async def create_astrofeature(feature_data: AstroFeatureNode) -> AstroFeatureNode:
+async def upsert_astrofeature(feature_data: AstroFeatureNode) -> AstroFeatureNode:
     """
-    Creates a new AstroFeature node in Neo4j.
-    The 'name' property is expected to be unique due to constraints.
+    Creates a new AstroFeature node or updates an existing one based on (name, feature_type) using MERGE.
+    This operation is idempotent.
     """
+    # Properties for MERGE. (name, feature_type) are used in the MERGE clause.
+    # Other properties are set ON CREATE or ON MATCH.
+    props_to_set = feature_data.model_dump(exclude_none=True, exclude={"name", "feature_type"})
+
+    # Pydantic's model_dump should handle Json[Dict[str, Any]] for 'details' correctly.
+    # It serializes it to a JSON string.
+
     query = f"""
-    CREATE (af:{ASTROFEATURE_LABEL} $props)
+    MERGE (af:{ASTROFEATURE_LABEL} {{name: $name, feature_type: $feature_type}})
+    ON CREATE SET af = $create_props, af.name = $name, af.feature_type = $feature_type
+    ON MATCH SET af += $match_props
     RETURN af
     """
-    props = feature_data.model_dump(exclude_none=True)
-    # Convert details if it's a Pydantic Json type to a string for Neo4j,
-    # or ensure your Neo4j version/driver handles it.
-    # The Pydantic model should serialize `Json[Dict[str, Any]]` to a string.
-    # If props['details'] is already a string, it's fine. If it's a dict, json.dumps might be needed
-    # if the driver doesn't handle dict-to-JSON-string for a JSON property type automatically.
-    # For now, assume Pydantic model_dump handles Json type correctly for the driver.
+    
+    create_properties = feature_data.model_dump(exclude_none=True) # All props for creation
+    match_properties = props_to_set # Props to update on match (already excludes name, feature_type)
+
+    parameters = {
+        "name": feature_data.name,
+        "feature_type": feature_data.feature_type,
+        "create_props": create_properties,
+        "match_props": match_properties
+    }
 
     try:
-        result_node_props = await execute_write_query(query, {"props": props})
-        if result_node_props and result_node_props.get("af"):
-            created_node_data = result_node_props["af"]
-            return AstroFeatureNode(**created_node_data)
+        result_node_data = await execute_merge_query(query, parameters)
+        
+        if result_node_data and result_node_data.get("af"):
+            return AstroFeatureNode(**result_node_data["af"])
         else:
-            logger.error(f"AstroFeature node creation did not return node for name: {feature_data.name}. Props: {props}")
-            raise NodeCreationError(f"Failed to create or retrieve AstroFeature node for name: {feature_data.name}")
-    except UniqueConstraintViolationError as e:
-        logger.warning(f"AstroFeature with name '{feature_data.name}' already exists.")
-        # Depending on desired behavior, could fetch existing instead of raising error.
-        # For now, strict creation: if it exists, it's an error for 'create' operation.
-        raise NodeCreationError(f"AstroFeature with name '{feature_data.name}' already exists.") from e
+            logger.error(f"AstroFeature node upsert did not return node for name: {feature_data.name}, type: {feature_data.feature_type}. Params: {parameters}")
+            raise DAOException(f"Failed to upsert or retrieve AstroFeature node for name: {feature_data.name}, type: {feature_data.feature_type}")
+    except UniqueConstraintViolationError as e: # Should not happen if MERGE is on the logical composite key
+        logger.error(f"Unexpected UniqueConstraintViolationError during MERGE for AstroFeature {feature_data.name}, type: {feature_data.feature_type}: {e}", exc_info=True)
+        raise DAOException(f"Unique constraint issue during MERGE for AstroFeature: {e}") from e
     except DAOException as e:
-        logger.error(f"DAOException during AstroFeature creation for name {feature_data.name}: {e}", exc_info=True)
-        raise NodeCreationError(f"Database error creating AstroFeature: {e}") from e
+        logger.error(f"DAOException during AstroFeature upsert for {feature_data.name}, type: {feature_data.feature_type}: {e}", exc_info=True)
+        raise DAOException(f"Database error upserting AstroFeature {feature_data.name}, type: {feature_data.feature_type}: {e}") from e
 
 
-async def get_astrofeature_by_name(name: str) -> Optional[AstroFeatureNode]:
+async def get_astrofeature_by_name_and_type(name: str, feature_type: str) -> Optional[AstroFeatureNode]:
     """
-    Retrieves an AstroFeature node by its unique name.
+    Retrieves an AstroFeature node by its composite key (name, feature_type).
     """
     query = f"""
-    MATCH (af:{ASTROFEATURE_LABEL} {{name: $name}})
+    MATCH (af:{ASTROFEATURE_LABEL} {{name: $name, feature_type: $feature_type}})
     RETURN af
     """
+    parameters = {"name": name, "feature_type": feature_type}
     try:
-        results = await execute_read_query(query, {"name": name})
+        results = await execute_read_query(query, parameters)
         if results and results[0].get("af"):
             node_properties = results[0]["af"]
             return AstroFeatureNode(**node_properties)
         return None
     except DAOException as e:
-        logger.error(f"DAOException while fetching AstroFeature by name {name}: {e}", exc_info=True)
+        logger.error(f"DAOException while fetching AstroFeature by name {name}, type {feature_type}: {e}", exc_info=True)
         return None
 
 async def get_astrofeatures_by_type(feature_type: str) -> List[AstroFeatureNode]:
@@ -89,63 +101,79 @@ async def get_astrofeatures_by_type(feature_type: str) -> List[AstroFeatureNode]
         return [] # Return empty list on error
 
 
-async def update_astrofeature(name: str, update_data: Dict[str, Any]) -> Optional[AstroFeatureNode]:
+async def update_astrofeature_properties(name: str, feature_type: str, update_props: Dict[str, Any]) -> Optional[AstroFeatureNode]:
     """
-    Updates properties of an existing AstroFeature node.
-    'name' is the unique identifier and cannot be changed via this method.
-    'feature_type' also typically shouldn't be changed.
+    Updates specific properties of an existing AstroFeature node, identified by (name, feature_type).
+    This operation is idempotent for the properties being updated.
+    It will NOT create an AstroFeature if one doesn't exist.
+    Returns the updated AstroFeatureNode if found and updated, None otherwise.
     """
-    if "name" in update_data:
-        del update_data["name"]
-    if "feature_type" in update_data: # Or raise error if trying to change type
-        del update_data["feature_type"]
+    if not update_props:
+        logger.warning(f"update_astrofeature_properties called for '{name}' ({feature_type}) with no properties to update.")
+        return await get_astrofeature_by_name_and_type(name, feature_type)
 
-    if not update_data:
-        logger.warning(f"Update_astrofeature called for '{name}' with no data to update.")
-        return await get_astrofeature_by_name(name)
+    # Ensure key fields are not in the properties to set
+    if "name" in update_props:
+        logger.warning(f"Attempted to update 'name' via update_astrofeature_properties for {name} ({feature_type}). Key fields cannot be changed.")
+        del update_props["name"]
+    if "feature_type" in update_props:
+        logger.warning(f"Attempted to update 'feature_type' via update_astrofeature_properties for {name} ({feature_type}). Key fields cannot be changed.")
+        del update_props["feature_type"]
+    
+    if not update_props: # If only key fields were passed and now it's empty
+        return await get_astrofeature_by_name_and_type(name, feature_type)
 
-    set_clauses = [f"af.{key} = $props.{key}" for key in update_data.keys()]
     query = f"""
-    MATCH (af:{ASTROFEATURE_LABEL} {{name: $name}})
-    SET {', '.join(set_clauses)}
+    MATCH (af:{ASTROFEATURE_LABEL} {{name: $name, feature_type: $feature_type}})
+    SET af += $props_to_set
     RETURN af
     """
-    parameters = {"name": name, "props": update_data}
+    parameters = {
+        "name": name,
+        "feature_type": feature_type,
+        "props_to_set": update_props
+    }
 
     try:
-        result_node_props = await execute_write_query(query, parameters)
-        if result_node_props and result_node_props.get("af"):
-            return AstroFeatureNode(**result_node_props["af"])
+        result_node_data = await execute_write_query(query, parameters) # Using execute_write_query for MATCH SET
+
+        if result_node_data and result_node_data.get("af"):
+            return AstroFeatureNode(**result_node_data["af"])
         else:
-            existing_feature = await get_astrofeature_by_name(name)
-            if not existing_feature:
-                raise NodeNotFoundError(f"AstroFeature with name '{name}' not found for update.")
-            raise UpdateError(f"Failed to update or retrieve updated AstroFeature node for name: {name}")
+            # If no result, the node was not found by MATCH
+            logger.warning(f"AstroFeature with name '{name}' and type '{feature_type}' not found for update.")
+            raise NodeNotFoundError(f"AstroFeature with name '{name}' and type '{feature_type}' not found for update.")
     except DAOException as e:
-        logger.error(f"DAOException during AstroFeature update for name {name}: {e}", exc_info=True)
-        raise UpdateError(f"Database error updating AstroFeature {name}: {e}") from e
+        if isinstance(e, NodeNotFoundError):
+            raise
+        logger.error(f"DAOException during AstroFeature properties update for {name} ({feature_type}): {e}", exc_info=True)
+        raise UpdateError(f"Database error updating AstroFeature properties for {name} ({feature_type}): {e}") from e
 
 
-async def delete_astrofeature(name: str) -> bool:
+async def delete_astrofeature(name: str, feature_type: str) -> bool:
     """
-    Deletes an AstroFeature node by its name.
+    Deletes an AstroFeature node by its composite key (name, feature_type).
     Also detaches and deletes any relationships.
+    Returns True if deletion was successful (node existed and was deleted), False otherwise.
     """
-    existing_feature = await get_astrofeature_by_name(name)
+    # First, check if the feature exists to provide accurate return value/logging
+    existing_feature = await get_astrofeature_by_name_and_type(name, feature_type)
     if not existing_feature:
-        logger.warning(f"AstroFeature with name '{name}' not found for deletion.")
+        logger.warning(f"AstroFeature with name '{name}' and type '{feature_type}' not found for deletion.")
         return False
 
     query = f"""
-    MATCH (af:{ASTROFEATURE_LABEL} {{name: $name}})
+    MATCH (af:{ASTROFEATURE_LABEL} {{name: $name, feature_type: $feature_type}})
     DETACH DELETE af
     """
+    parameters = {"name": name, "feature_type": feature_type}
     try:
-        await execute_write_query(query, {"name": name})
+        await execute_write_query(query, parameters) # execute_write_query returns None or a record, not a summary for count
+        # If execute_write_query doesn't raise an error, assume success for DETACH DELETE.
         return True
     except DAOException as e:
-        logger.error(f"DAOException during AstroFeature deletion for name {name}: {e}", exc_info=True)
-        raise DeletionError(f"Database error deleting AstroFeature {name}: {e}") from e
+        logger.error(f"DAOException during AstroFeature deletion for {name} ({feature_type}): {e}", exc_info=True)
+        raise DeletionError(f"Database error deleting AstroFeature {name} ({feature_type}): {e}") from e
 
 # Example usage
 if __name__ == "__main__":
@@ -160,71 +188,95 @@ if __name__ == "__main__":
     async def test_astrofeature_crud():
         logger.info("Testing AstroFeature CRUD operations...")
         test_feature_name = "Sun_in_Leo_Test_CRUD"
-        feature_details = AstroFeatureNode(
+        test_feature_type = "planet_in_sign"
+        
+        feature_details_initial = AstroFeatureNode(
             name=test_feature_name,
-            feature_type="planet_in_sign",
-            details={"element": "Fire", "modality": "Fixed"}
+            feature_type=test_feature_type,
+            details={"element": "Fire", "modality": "Fixed", "orb": 1.0}
         )
-        created_feature = None
+        upserted_feature = None
+
+        # Note: Constraints on (name, feature_type) are not directly supported by Neo4j Community for unique constraints.
+        # This uniqueness is typically enforced at the application layer or via workarounds.
+        # The schema_setup.py now creates individual indexes on name and feature_type.
+
         try:
-            # Apply constraint first (normally done by schema_setup.py)
-            try:
-                await execute_write_query(f"CREATE CONSTRAINT IF NOT EXISTS astrofeature_name_unique_test FOR (af:{ASTROFEATURE_LABEL}) REQUIRE af.name IS UNIQUE")
-            except Exception as e: # Catch if it already exists from a previous partial run
-                 logger.info(f"Constraint astrofeature_name_unique_test might already exist or failed to create: {e}")
+            # Upsert (Create)
+            logger.info(f"Attempting to upsert (create) AstroFeature: {test_feature_name} ({test_feature_type})")
+            upserted_feature = await upsert_astrofeature(feature_details_initial)
+            assert upserted_feature is not None
+            assert upserted_feature.name == test_feature_name
+            assert upserted_feature.feature_type == test_feature_type
+            assert upserted_feature.details["modality"] == "Fixed"
+            logger.info(f"AstroFeature upserted (created): {upserted_feature.model_dump_json(indent=2)}")
 
-
-            # Create
-            logger.info(f"Attempting to create AstroFeature: {test_feature_name}")
-            created_feature = await create_astrofeature(feature_details)
-            assert created_feature is not None and created_feature.name == test_feature_name
-            logger.info(f"AstroFeature created: {created_feature.model_dump_json(indent=2)}")
-
-            # Get
-            retrieved_feature = await get_astrofeature_by_name(test_feature_name)
-            assert retrieved_feature is not None and retrieved_feature.name == test_feature_name
+            # Get by name and type
+            retrieved_feature = await get_astrofeature_by_name_and_type(test_feature_name, test_feature_type)
+            assert retrieved_feature is not None
+            assert retrieved_feature.name == test_feature_name
             logger.info(f"AstroFeature retrieved: {retrieved_feature.model_dump_json(indent=2)}")
 
-            # Get by type
-            typed_features = await get_astrofeatures_by_type("planet_in_sign")
-            assert any(f.name == test_feature_name for f in typed_features)
-            logger.info(f"Found {len(typed_features)} features of type 'planet_in_sign'.")
+            # Get by type (verify our test feature is among them)
+            typed_features = await get_astrofeatures_by_type(test_feature_type)
+            assert any(f.name == test_feature_name and f.feature_type == test_feature_type for f in typed_features)
+            logger.info(f"Found {len(typed_features)} features of type '{test_feature_type}'.")
 
-            # Update
-            update_payload = {"details": {"element": "Fire", "modality": "Fixed", "description": "Kingly and proud"}}
-            updated_feature = await update_astrofeature(test_feature_name, update_payload)
-            assert updated_feature is not None and updated_feature.details.get("description") == "Kingly and proud"
-            logger.info(f"AstroFeature updated: {updated_feature.model_dump_json(indent=2)}")
+            # Upsert (Update existing)
+            feature_details_updated = AstroFeatureNode(
+                name=test_feature_name, # Key
+                feature_type=test_feature_type, # Key
+                details={"element": "Fire", "modality": "Fixed", "description": "Kingly and proud", "orb": 1.5} # New detail, updated orb
+            )
+            logger.info(f"Attempting to upsert (update) AstroFeature: {test_feature_name} ({test_feature_type})")
+            upserted_feature = await upsert_astrofeature(feature_details_updated)
+            assert upserted_feature is not None
+            assert upserted_feature.details.get("description") == "Kingly and proud"
+            assert upserted_feature.details.get("orb") == 1.5
+            logger.info(f"AstroFeature upserted (updated): {upserted_feature.model_dump_json(indent=2)}")
 
-            # Test duplicate creation
-            logger.info(f"Attempting to create duplicate AstroFeature (should fail): {test_feature_name}")
-            try:
-                await create_astrofeature(feature_details)
-            except NodeCreationError as e:
-                logger.info(f"Successfully caught error for duplicate AstroFeature creation: {e}")
-            else:
-                logger.error("Duplicate AstroFeature creation did not fail as expected!")
+            # Update specific properties
+            partial_update_payload = {"details": {"new_info": "Added later", "orb": 2.0}} # This will overwrite the whole details dict
+                                                                                       # To merge, logic in update_astrofeature_properties would need to be smarter
+                                                                                       # For now, it replaces. Let's test replacing details.
+            logger.info(f"Attempting to update specific properties for AstroFeature: {test_feature_name} ({test_feature_type})")
+            
+            # To properly test partial update of 'details', we should fetch existing, modify, then update.
+            current_details = upserted_feature.details.copy() if upserted_feature.details else {}
+            current_details["new_info"] = "Added later"
+            current_details["orb"] = 2.0
+            
+            updated_again_feature = await update_astrofeature_properties(
+                test_feature_name, test_feature_type, {"details": current_details}
+            )
+            assert updated_again_feature is not None
+            assert updated_again_feature.details.get("new_info") == "Added later"
+            assert updated_again_feature.details.get("orb") == 2.0
+            assert updated_again_feature.details.get("description") == "Kingly and proud" # Should persist
+            logger.info(f"AstroFeature partially updated: {updated_again_feature.model_dump_json(indent=2)}")
+
+            # Test upsert again with original details (should update back)
+            logger.info(f"Attempting upsert again with original details: {test_feature_name} ({test_feature_type})")
+            final_upsert_feature = await upsert_astrofeature(feature_details_initial)
+            assert final_upsert_feature.details.get("orb") == 1.0
+            assert "description" not in final_upsert_feature.details # Description was not in initial
+            assert "new_info" not in final_upsert_feature.details   # New info was not in initial
+            logger.info(f"AstroFeature upserted to original: {final_upsert_feature.model_dump_json(indent=2)}")
 
         except AssertionError as e:
             logger.error(f"Assertion failed during AstroFeature CRUD test: {e}", exc_info=True)
         except Exception as e:
             logger.error(f"An error occurred during AstroFeature CRUD testing: {e}", exc_info=True)
         finally:
-            if created_feature:
-                deleted = await delete_astrofeature(test_feature_name)
+            if upserted_feature: # If any upsert was successful
+                deleted = await delete_astrofeature(test_feature_name, test_feature_type)
                 assert deleted is True
-                logger.info(f"AstroFeature '{test_feature_name}' deletion status: {deleted}")
-                not_found_feature = await get_astrofeature_by_name(test_feature_name)
+                logger.info(f"AstroFeature '{test_feature_name} ({test_feature_type})' deletion status: {deleted}")
+                
+                not_found_feature = await get_astrofeature_by_name_and_type(test_feature_name, test_feature_type)
                 assert not_found_feature is None
                 logger.info("AstroFeature successfully verified as deleted.")
             
-            # Clean up test constraint
-            try:
-                await execute_write_query("DROP CONSTRAINT astrofeature_name_unique_test IF EXISTS")
-                logger.info("Dropped test constraint astrofeature_name_unique_test.")
-            except Exception:
-                pass
-
             await Neo4jDatabase.close_async_driver()
             logger.info("Neo4j async driver closed after AstroFeature CRUD tests.")
 

@@ -1,8 +1,11 @@
 # tests/test_integration.py
 import pytest
 import asyncio
-from datetime import date, time
+import uuid
+from datetime import date, time, datetime as dt, timezone
 from unittest.mock import patch, MagicMock # Use patch from unittest.mock
+import httpx # For api_client type hint
+from neo4j import AsyncDriver # For e2e_neo4j_driver type hint
 
 from rdflib import Graph, Literal # Import Literal from top-level rdflib
 from rdflib.namespace import RDF
@@ -166,3 +169,115 @@ async def test_full_data_flow_integration(mocker):
 
     # Ensure the mock HD client was called
     mock_hd_client.assert_called_once_with(TEST_BIRTH_DATA)
+
+
+@pytest.mark.e2e
+@pytest.mark.asyncio
+async def test_e2e_profile_creation_populates_kg(
+    api_client: httpx.AsyncClient, # Fixture from tests/conftest.py
+    e2e_neo4j_driver: AsyncDriver # Fixture from tests/conftest.py
+):
+    """
+    End-to-End test:
+    1. Calls the /profile/create API endpoint.
+    2. Waits for Kafka event processing by kg_service.
+    3. Verifies that data is populated in the Neo4j graph.
+    Assumes the full Docker environment (infra/docker/docker-compose.yml) is running.
+    """
+    profile_uuid = str(uuid.uuid4())
+    user_id_for_test = f"e2e_user_{profile_uuid}" # Ensure unique user_id
+
+    request_payload = {
+        "birth_data": {
+            "birth_date": "1985-08-15",
+            "birth_time": "14:30:00",
+            "city_of_birth": "London",
+            "country_of_birth": "GB"
+            # latitude, longitude, timezone will be derived by geocoding/timezone services
+        },
+        "assessment_responses": {
+            "typology": { # Example, adjust to actual typology questions
+                "cognitive-q1": "left", "perceptual-q1": "right"
+            },
+            "mastery": { # Example, adjust to actual mastery questions
+                "core-q1": "self-awareness"
+            }
+        }
+    }
+
+    # 1. Call the /profile/create API endpoint
+    # The main API (main.py) will call chart_calc service, which should produce Kafka events.
+    # kg_service will consume these events and write to Neo4j.
+    response = await api_client.post("/profile/create", json=request_payload)
+    response.raise_for_status() # Check for API errors
+    response_data = response.json()
+    profile_id_from_api = response_data.get("profile_id")
+
+    assert response.status_code == 201
+    assert profile_id_from_api is not None
+    # Note: The profile_id returned by the API might be different from user_id_for_test
+    # depending on how it's generated (e.g., from graph URI).
+    # For verification, we'll use the user_id that should be in the graph based on input.
+    # The `kg_population.create_user_profile_graph` uses `request.user_id` if present,
+    # or generates one. The `ProfileCreateRequest` model doesn't have a top-level user_id.
+    # The `kg_service`'s `chart_consumer` uses the Kafka message key as user_id.
+    # The `main.py`'s `/profile/create` doesn't explicitly send a user_id to Kafka.
+    # This needs alignment. For now, assume the chart_calc service uses a generated ID or
+    # one from an auth context (not present in this test request).
+    # Let's assume for now the `profile_id_from_api` is what we should query for.
+    # If the KG uses a different identifier (e.g. from birth data hash), adjust query.
+
+    # For this test, let's assume the `profile_id_from_api` is the `user_id` in the Person node.
+    # This implies the `chart_calc` service, when producing the Kafka event, uses this ID as the key.
+    # Or, `kg_population` in `main.py` ensures this ID is used when creating the initial graph node.
+    # The `kg_service`'s `chart_consumer` uses the Kafka message key as `user_id`.
+    # The `main.py`'s `/profile/create` calls `chart_calc`, which then produces an event.
+    # The key for that event is crucial. Let's assume `chart_calc` uses the `profile_id` it generates/receives.
+
+    # 2. Wait for event processing
+    # This is a common challenge in E2E tests. A fixed delay is simple but can be flaky.
+    # A more robust approach would be polling Neo4j or using a notification mechanism.
+    await asyncio.sleep(15) # Adjust delay as needed for your environment
+
+    # 3. Verify data in Neo4j
+    async with e2e_neo4j_driver.session() as session:
+        # Check if a Person node was created.
+        # The exact user_id to query depends on how it's propagated through the system.
+        # If the API's profile_id is used as the Kafka message key by chart_calc,
+        # then kg_service's chart_consumer will use it as user_id for the Person node.
+        person_query = "MATCH (p:Person {user_id: $user_id}) RETURN p.user_id as user_id, p.birth_latitude as lat"
+        person_result = await session.run(person_query, user_id=profile_id_from_api)
+        person_record = await person_result.single()
+
+        assert person_record is not None, f"Person node with user_id '{profile_id_from_api}' not found in Neo4j."
+        assert person_record["user_id"] == profile_id_from_api
+        assert person_record["lat"] is not None # Check that geocoding happened and was stored
+
+        # Verify some AstroFeature linked to the Person
+        # Example: Check for a Sun sign feature (name depends on actual calculation)
+        # This requires knowing what features chart_calc would generate for "1985-08-15 London"
+        # For a generic check, we can see if *any* AstroFeature is linked.
+        astro_link_query = """
+        MATCH (p:Person {user_id: $user_id})-[:HAS_ASTROFEATURE]->(af:AstroFeature)
+        RETURN count(af) as astro_feature_count
+        """
+        astro_link_result = await session.run(astro_link_query, user_id=profile_id_from_api)
+        astro_link_record = await astro_link_result.single()
+        assert astro_link_record is not None
+        assert astro_link_record["astro_feature_count"] > 0, "No AstroFeatures linked to Person."
+
+        # Verify some HDFeature linked to the Person
+        hd_link_query = """
+        MATCH (p:Person {user_id: $user_id})-[:HAS_HDFEATURE]->(hf:HDFeature)
+        RETURN count(hf) as hd_feature_count
+        """
+        hd_link_result = await session.run(hd_link_query, user_id=profile_id_from_api)
+        hd_link_record = await hd_link_result.single()
+        assert hd_link_record is not None
+        assert hd_link_record["hd_feature_count"] > 0, "No HDFeatures linked to Person."
+
+    # Cleanup (optional, but good practice for E2E tests if state persists across runs)
+    # async with e2e_neo4j_driver.session() as session:
+    #     await session.run("MATCH (p:Person {user_id: $user_id}) DETACH DELETE p", user_id=profile_id_from_api)
+    #     # Delete other related nodes if they are uniquely created for this test
+    #     # and not shared dictionary nodes.
